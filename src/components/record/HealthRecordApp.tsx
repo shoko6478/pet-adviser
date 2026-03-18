@@ -111,6 +111,15 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
   const [recordFormValues, setRecordFormValues] = useState<DailyRecordFormValues>(() =>
     createEmptyRecordForm(today),
   );
+  const [profileEditorValues, setProfileEditorValues] = useState<PetProfileFormValues>({
+    name: "",
+    type: "cat",
+    birthMonth: "",
+    notes: "",
+  });
+  const [petCreateFormValues, setPetCreateFormValues] = useState<PetCreateFormValues>(() =>
+    createEmptyPetCreateForm(),
+  );
   const [profileFormValues, setProfileFormValues] = useState<PetProfileFormValues>({
     name: "",
     type: "cat",
@@ -160,7 +169,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
       setPets(nextPets);
       setSelectedPet(snapshot.pet);
       setSelectedProfile(snapshot.profile);
-      setProfileFormValues(toProfileFormValues(snapshot.pet, snapshot.profile));
+      setProfileEditorValues(toProfileFormValues(snapshot.pet, snapshot.profile));
       setRecords(dailyRecords);
       setRecordFormValues(todayRecord ? toRecordFormValues(todayRecord) : createEmptyRecordForm(today));
     } catch (error) {
@@ -270,11 +279,11 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
 
         {section === "profile" ? (
           <PetProfileForm
-            values={profileFormValues}
+            values={profileEditorValues}
             isSaving={isSavingProfile}
             onChange={(nextValues) => {
               setSuccessMessage(null);
-              setProfileFormValues(nextValues);
+              setProfileEditorValues(nextValues);
             }}
             onSubmit={async (values) => {
               setIsSavingProfile(true);
@@ -293,7 +302,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
                 setPets(nextPets);
                 setSelectedPet(snapshot.pet);
                 setSelectedProfile(snapshot.profile);
-                setProfileFormValues(toProfileFormValues(snapshot.pet, snapshot.profile));
+                setProfileEditorValues(toProfileFormValues(snapshot.pet, snapshot.profile));
                 setSuccessMessage(`${snapshot.pet.name} の基本情報を保存しました。`);
               } catch (error) {
                 setErrorMessage(error instanceof Error ? error.message : "基本情報の保存に失敗しました。");
