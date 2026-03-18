@@ -47,13 +47,13 @@ const DEFAULT_COLUMN_WIDTHS: Record<ColumnKey, number> = {
   actions: 140,
 };
 const MIN_COLUMN_WIDTHS: Record<ColumnKey, number> = {
-  category: 96,
-  title: 160,
-  startedAt: 110,
-  endedAt: 110,
-  isOngoing: 88,
-  hospitalName: 140,
-  detail: 220,
+  category: 72,
+  title: 120,
+  startedAt: 88,
+  endedAt: 88,
+  isOngoing: 72,
+  hospitalName: 96,
+  detail: 160,
   actions: 120,
 };
 
@@ -498,6 +498,15 @@ export function MedicalHistorySection({
                     <span>継続中</span>
                     <span className="sort-indicator">{getSortIndicator("isOngoing")}</span>
                   </button>
+                  <button
+                    type="button"
+                    className="column-resize-handle"
+                    aria-label="継続中列の幅を調整"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      startColumnResize("isOngoing", event.clientX);
+                    }}
+                  />
                 </th>
                 <th className="medical-history-col-hospitalName">
                   <button type="button" className="table-sort-button" onClick={() => toggleSort("hospitalName")}>

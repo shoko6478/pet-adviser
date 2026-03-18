@@ -1214,6 +1214,11 @@ a {
   vertical-align: top;
 }
 
+.medical-history-table td {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .medical-history-table th {
   position: relative;
   color: #52607a;
@@ -1265,33 +1270,33 @@ a {
 }
 
 .medical-history-col-category {
-  min-width: 96px;
+  min-width: 72px;
   max-width: 160px;
 }
 
 .medical-history-col-title {
-  min-width: 160px;
+  min-width: 120px;
   max-width: 320px;
 }
 
 .medical-history-col-startedAt,
 .medical-history-col-endedAt {
-  min-width: 110px;
+  min-width: 88px;
   max-width: 150px;
 }
 
 .medical-history-col-isOngoing {
-  min-width: 88px;
+  min-width: 72px;
   max-width: 110px;
 }
 
 .medical-history-col-hospitalName {
-  min-width: 140px;
+  min-width: 96px;
   max-width: 260px;
 }
 
 .medical-history-col-detail {
-  min-width: 220px;
+  min-width: 160px;
 }
 
 .medical-history-col-actions {
@@ -1363,6 +1368,8 @@ a {
   color: #30466f;
   line-height: 1.6;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .chart-date-tick {
