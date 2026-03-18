@@ -1,4 +1,4 @@
-import { PetWorkspace } from "@/components/record/HealthRecordApp";
+import { PetWorkspace } from "@/components/pet/PetWorkspace";
 
 export default async function PetRecordsPage({
   params,

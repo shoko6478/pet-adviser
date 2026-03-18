@@ -4,6 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { PetCreateFormValues } from "@/components/pet/PetCreateForm";
+import {
+  anomalyService,
+  createEmptyPetCreateForm,
+  createEmptyRecordForm,
+  getPetHref,
+  healthRecordService,
+  toProfileFormValues,
+  toRecordFormValues,
+} from "@/components/pet/pet-workspace-shared";
 import { AnomalySummary } from "@/components/record/AnomalySummary";
 import { DailyRecordForm, type DailyRecordFormValues } from "@/components/record/DailyRecordForm";
 import { DailyRecordList } from "@/components/record/DailyRecordList";
@@ -13,92 +22,11 @@ import { RecordCharts } from "@/components/record/RecordCharts";
 import type { DailyRecord } from "@/domain/models/daily-record";
 import type { Pet } from "@/domain/models/pet";
 import type { PetProfile } from "@/domain/models/pet-profile";
-import { LocalDailyRecordRepository } from "@/infrastructure/repositories/local-daily-record-repository";
-import { LocalPetProfileRepository } from "@/infrastructure/repositories/local-pet-profile-repository";
-import { LocalPetRepository } from "@/infrastructure/repositories/local-pet-repository";
 import { getTodayDateString } from "@/lib/utils/date";
-import { AnomalyService } from "@/services/anomaly-service";
-import { HealthRecordService } from "@/services/health-record-service";
-
-const petRepository = new LocalPetRepository();
-const petProfileRepository = new LocalPetProfileRepository();
-const dailyRecordRepository = new LocalDailyRecordRepository();
-const healthRecordService = new HealthRecordService(
-  petRepository,
-  petProfileRepository,
-  dailyRecordRepository,
-);
-const anomalyService = new AnomalyService();
-
-function createEmptyRecordForm(date: string): DailyRecordFormValues {
-  return {
-    date,
-    weight: "",
-    food: "",
-    toilet: "",
-  };
-}
-
-function createEmptyPetCreateForm(): PetCreateFormValues {
-  return {
-    name: "",
-    type: "cat",
-  };
-}
-
-function toRecordFormValues(record: DailyRecord): DailyRecordFormValues {
-  return {
-    date: record.date,
-    weight: String(record.weight),
-    food: String(record.food),
-    toilet: String(record.toilet),
-  };
-}
-
-function toProfileFormValues(pet: Pet, profile: PetProfile): PetProfileFormValues {
-  return {
-    name: pet.name,
-    type: pet.type,
-    birthMonth: profile.birthMonth ?? "",
-    notes: profile.notes ?? "",
-  };
-}
-
-function getPetHref(petId: string, section: "profile" | "records") {
-  return section === "records" ? `/pets/${petId}/records` : `/pets/${petId}`;
-}
 
 interface PetWorkspaceProps {
   petId?: string;
   section: "profile" | "records";
-}
-
-export function PetHomeRedirect() {
-  const router = useRouter();
-
-  useEffect(() => {
-    let isMounted = true;
-
-    void (async () => {
-      const pets = await healthRecordService.getOrCreatePets();
-      if (!isMounted) return;
-
-      const firstPet = pets[0];
-      if (firstPet) {
-        router.replace(getPetHref(firstPet.id, "records"));
-      }
-    })();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [router]);
-
-  return (
-    <main className="page-shell">
-      <p className="status-text">ペット情報を読み込んでいます...</p>
-    </main>
-  );
 }
 
 export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
@@ -120,21 +48,6 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
   const [petCreateEditorValues, setPetCreateEditorValues] = useState<PetCreateFormValues>(() =>
     createEmptyPetCreateForm(),
   );
-  const [profileFormValues, setProfileFormValues] = useState<PetProfileFormValues>({
-    name: "",
-    type: "cat",
-    birthMonth: "",
-    notes: "",
-  });
-  const [petCreateFormValues, setPetCreateFormValues] = useState<PetCreateFormValues>(() =>
-    createEmptyPetCreateForm(),
-  );
-  const [profileFormValues, setProfileFormValues] = useState<PetProfileFormValues>({
-    name: "",
-    type: "cat",
-    birthMonth: "",
-    notes: "",
-  });
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingRecord, setIsSavingRecord] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
