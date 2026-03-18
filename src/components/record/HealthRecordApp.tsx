@@ -117,7 +117,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
     birthMonth: "",
     notes: "",
   });
-  const [petCreateFormValues, setPetCreateFormValues] = useState<PetCreateFormValues>(() =>
+  const [petCreateEditorValues, setPetCreateEditorValues] = useState<PetCreateFormValues>(() =>
     createEmptyPetCreateForm(),
   );
   const [profileFormValues, setProfileFormValues] = useState<PetProfileFormValues>({
@@ -217,14 +217,14 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
         selectedPetId={selectedPet.id}
         currentSection={section}
         isCreatingPet={isCreatingPet}
-        createValues={petCreateFormValues}
+        createValues={petCreateEditorValues}
         onSelect={(nextPetId) => {
           setSuccessMessage(null);
           router.push(getPetHref(nextPetId, section));
         }}
         onCreateValuesChange={(values) => {
           setSuccessMessage(null);
-          setPetCreateFormValues(values);
+          setPetCreateEditorValues(values);
         }}
         onCreatePet={async (values) => {
           setIsCreatingPet(true);
@@ -235,7 +235,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
             const snapshot = await healthRecordService.createPet(values);
             const nextPets = await healthRecordService.getOrCreatePets();
             setPets(nextPets);
-            setPetCreateFormValues(createEmptyPetCreateForm());
+            setPetCreateEditorValues(createEmptyPetCreateForm());
             setSuccessMessage(`${snapshot.pet.name} を追加しました。`);
             router.push(getPetHref(snapshot.pet.id, section));
           } catch (error) {
