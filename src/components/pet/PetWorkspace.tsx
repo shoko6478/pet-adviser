@@ -26,6 +26,7 @@ import { ObservationFieldManager } from "@/components/record/ObservationFieldMan
 import { PetProfileForm, type PetProfileFormValues } from "@/components/record/PetProfileForm";
 import { PetSidebar } from "@/components/record/PetSidebar";
 import { RecordCharts } from "@/components/record/RecordCharts";
+import type { DailyObservationValue } from "@/domain/models/daily-observation-value";
 import type { DailyRecord } from "@/domain/models/daily-record";
 import type { ObservationFieldDefinition } from "@/domain/models/observation-field-definition";
 import type { Pet } from "@/domain/models/pet";
@@ -44,6 +45,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<PetProfile | null>(null);
   const [records, setRecords] = useState<DailyRecord[]>([]);
+  const [recordObservationValuesByRecordId, setRecordObservationValuesByRecordId] = useState<Record<string, DailyObservationValue[]>>({});
   const [observationFieldDefinitions, setObservationFieldDefinitions] = useState<ObservationFieldDefinition[]>([]);
   const [recordFormValues, setRecordFormValues] = useState<DailyRecordFormValues>(() =>
     createEmptyRecordForm(today),
@@ -66,10 +68,19 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  async function loadObservationValuesByRecordId(dailyRecords: DailyRecord[]) {
+    const entries = await Promise.all(
+      dailyRecords.map(async (record) => [record.id, await healthRecordService.getDailyObservationValues(record.id)] as const),
+    );
+
+    return Object.fromEntries(entries);
+  }
+
   async function loadRecordEditor(
     date: string,
     dailyRecords: DailyRecord[],
     definitions: ObservationFieldDefinition[],
+    observationValuesByRecordId: Record<string, DailyObservationValue[]>,
   ) {
     const matched = dailyRecords.find((record) => record.date === date) ?? null;
     setRecordFormValues(matched ? toRecordFormValues(matched) : createEmptyRecordForm(date));
@@ -79,8 +90,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
       return;
     }
 
-    const observationValues = await healthRecordService.getDailyObservationValues(matched.id);
-    setObservationFormValues(mergeObservationValues(definitions, observationValues));
+    setObservationFormValues(mergeObservationValues(definitions, observationValuesByRecordId[matched.id] ?? []));
   }
 
   async function load(targetPetId?: string) {
@@ -106,6 +116,8 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
 
       const definitions = await healthRecordService.getObservationFieldDefinitions(nextPet.id);
       const dailyRecords = section === "records" ? await healthRecordService.getDailyRecords(nextPet.id) : [];
+      const observationValuesByRecordId =
+        section === "records" ? await loadObservationValuesByRecordId(dailyRecords) : {};
 
       setPets(nextPets);
       setSelectedPet(snapshot.pet);
@@ -113,11 +125,13 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
       setProfileEditorValues(toProfileFormValues(snapshot.pet, snapshot.profile));
       setObservationFieldDefinitions(definitions);
       setRecords(dailyRecords);
+      setRecordObservationValuesByRecordId(observationValuesByRecordId);
 
       if (section === "records") {
-        await loadRecordEditor(today, dailyRecords, definitions);
+        await loadRecordEditor(today, dailyRecords, definitions, observationValuesByRecordId);
       } else {
         setRecordFormValues(createEmptyRecordForm(today));
+        setRecordObservationValuesByRecordId({});
         setObservationFormValues(createEmptyObservationValues(definitions));
       }
     } catch (error) {
@@ -367,7 +381,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
                   return;
                 }
 
-                void loadRecordEditor(nextValues.date, records, observationFieldDefinitions);
+                void loadRecordEditor(nextValues.date, records, observationFieldDefinitions, recordObservationValuesByRecordId);
               }}
               onObservationValuesChange={(nextValues) => {
                 setSuccessMessage(null);
@@ -392,8 +406,10 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
                   });
 
                   const nextRecords = await healthRecordService.getDailyRecords(selectedPet.id);
+                  const nextObservationValuesByRecordId = await loadObservationValuesByRecordId(nextRecords);
                   setRecords(nextRecords);
-                  await loadRecordEditor(saved.date, nextRecords, observationFieldDefinitions);
+                  setRecordObservationValuesByRecordId(nextObservationValuesByRecordId);
+                  await loadRecordEditor(saved.date, nextRecords, observationFieldDefinitions, nextObservationValuesByRecordId);
                   setSuccessMessage(`${selectedPet.name} の ${saved.date} の記録を保存しました。`);
                 } catch (error) {
                   setErrorMessage(error instanceof Error ? error.message : "記録の保存に失敗しました。");
@@ -404,7 +420,11 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
             />
 
             <AnomalySummary result={anomalyResult} targetDate={recordFormValues.date} />
-            <RecordCharts records={records} />
+            <RecordCharts
+              records={records}
+              observationFields={observationFieldDefinitions}
+              observationValuesByRecordId={recordObservationValuesByRecordId}
+            />
             <DailyRecordList records={records} />
           </>
         )}

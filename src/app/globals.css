@@ -630,3 +630,129 @@ a {
     justify-content: stretch;
   }
 }
+
+.chart-section-card {
+  overflow: hidden;
+}
+
+.chart-scroll-frame {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
+}
+
+.chart-timeline-stack {
+  display: grid;
+  gap: 14px;
+  min-width: max-content;
+}
+
+.chart-panel-card,
+.metric-chart-card {
+  min-width: 0;
+}
+
+.chart-panel-card {
+  margin-bottom: 0;
+}
+
+.metric-chart-svg {
+  display: block;
+  min-width: 0;
+}
+
+.chart-grid-line {
+  stroke: #dde6f2;
+}
+
+.chart-vertical-line {
+  stroke: #ecf1f8;
+}
+
+.chart-point {
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+
+.chart-point-hit {
+  fill: transparent;
+}
+
+.observation-timeline-card {
+  background: #fafdff;
+}
+
+.observation-chart-caption {
+  color: #52607a;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.observation-marker {
+  stroke: #ffffff;
+  stroke-width: 1.5;
+}
+
+.observation-marker-checkbox {
+  fill: #2f61cc;
+}
+
+.observation-marker-text {
+  fill: #52607a;
+}
+
+.observation-marker-label {
+  fill: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.observation-note-panel {
+  margin-top: 12px;
+  border-top: 1px solid #e7edf6;
+  padding-top: 12px;
+}
+
+.observation-note-title {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #30466f;
+}
+
+.observation-note-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.observation-note-list li {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f5f8fd;
+}
+
+.observation-note-list strong {
+  color: #172033;
+  font-size: 0.9rem;
+}
+
+.observation-note-list span,
+.observation-empty {
+  color: #52607a;
+  font-size: 0.9rem;
+}
+
+.observation-note-list p {
+  margin: 0;
+  white-space: pre-wrap;
+  color: #30466f;
+}
