@@ -120,6 +120,21 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
   const [petCreateEditorValues, setPetCreateEditorValues] = useState<PetCreateFormValues>(() =>
     createEmptyPetCreateForm(),
   );
+  const [profileFormValues, setProfileFormValues] = useState<PetProfileFormValues>({
+    name: "",
+    type: "cat",
+    birthMonth: "",
+    notes: "",
+  });
+  const [petCreateFormValues, setPetCreateFormValues] = useState<PetCreateFormValues>(() =>
+    createEmptyPetCreateForm(),
+  );
+  const [profileFormValues, setProfileFormValues] = useState<PetProfileFormValues>({
+    name: "",
+    type: "cat",
+    birthMonth: "",
+    notes: "",
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingRecord, setIsSavingRecord] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
