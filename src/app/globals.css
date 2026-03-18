@@ -756,3 +756,130 @@ a {
   white-space: pre-wrap;
   color: #30466f;
 }
+
+.chart-header-tools {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  color: #52607a;
+  font-size: 0.9rem;
+}
+
+.chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-legend-line {
+  width: 20px;
+  height: 0;
+  border-top: 3px solid currentColor;
+  border-radius: 999px;
+}
+
+.chart-legend-line.weight {
+  color: #5b7cfa;
+}
+
+.chart-legend-line.food {
+  color: #34b27b;
+}
+
+.integrated-chart-svg {
+  display: block;
+  min-width: 0;
+}
+
+.chart-plot-background {
+  fill: #fbfdff;
+}
+
+.weight-axis-label {
+  fill: #4e6ff0;
+}
+
+.food-axis-label {
+  fill: #2f9b68;
+}
+
+.chart-axis-title {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.weight-point {
+  fill: #5b7cfa;
+}
+
+.food-point {
+  fill: #34b27b;
+}
+
+.chart-section-divider,
+.observation-row-line {
+  stroke: #dde6f2;
+  stroke-width: 1;
+}
+
+.observation-row-label {
+  fill: #30466f;
+}
+
+.text-observation-marker-group {
+  cursor: pointer;
+}
+
+.observation-marker-text.active {
+  fill: #30466f;
+  stroke: #1d2f52;
+  stroke-width: 2;
+}
+
+.chart-note-detail {
+  margin-top: 12px;
+  border-top: 1px solid #e7edf6;
+  padding-top: 12px;
+}
+
+.chart-note-detail-title {
+  margin: 0 0 8px;
+  color: #30466f;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.chart-note-detail-body {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f5f8fd;
+}
+
+.chart-note-detail-body strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.chart-note-detail-body p {
+  margin: 0;
+  white-space: pre-wrap;
+  color: #30466f;
+}
+
+@media (max-width: 767px) {
+  .chart-header-tools {
+    align-items: stretch;
+  }
+
+  .chart-legend {
+    justify-content: flex-start;
+  }
+}

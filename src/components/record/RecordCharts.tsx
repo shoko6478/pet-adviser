@@ -12,20 +12,6 @@ interface RecordChartsProps {
   observationValuesByRecordId: Record<string, DailyObservationValue[]>;
 }
 
-type ChartMetric = {
-  key: "weight" | "food" | "toilet";
-  label: string;
-  color: string;
-  unit: string;
-  precision: number;
-  minValue: number;
-};
-
-type Tick = {
-  value: number;
-  label: string;
-};
-
 type RangeOption = 7 | 30;
 
 type ValueDomain = {
@@ -33,19 +19,24 @@ type ValueDomain = {
   max: number;
 };
 
-type ObservationMarker = {
-  date: string;
-  kind: "checkbox" | "text";
-  value: boolean | string;
+type Tick = {
+  value: number;
+  label: string;
 };
 
-const METRICS: ChartMetric[] = [
-  { key: "weight", label: "体重", color: "#5b7cfa", unit: "kg", precision: 1, minValue: 0 },
-  { key: "food", label: "食事量", color: "#34b27b", unit: "g", precision: 0, minValue: 0 },
-  { key: "toilet", label: "トイレ回数", color: "#ff9f43", unit: "回", precision: 0, minValue: 0 },
-];
+type ObservationMarker =
+  | {
+      date: string;
+      kind: "checkbox";
+    }
+  | {
+      date: string;
+      kind: "text";
+      note: string;
+    };
 
 const RANGE_OPTIONS: RangeOption[] = [7, 30];
+const GRID_STEPS = 4;
 
 function createValueDomain(values: number[], minValue: number): ValueDomain {
   const rawMin = Math.min(...values);
@@ -64,9 +55,8 @@ function createValueDomain(values: number[], minValue: number): ValueDomain {
 }
 
 function createTicks(domain: ValueDomain, precision: number): Tick[] {
-  const steps = 4;
-  return Array.from({ length: steps + 1 }, (_, index) => {
-    const value = domain.min + ((domain.max - domain.min) / steps) * index;
+  return Array.from({ length: GRID_STEPS + 1 }, (_, index) => {
+    const value = domain.min + ((domain.max - domain.min) / GRID_STEPS) * index;
     return {
       value,
       label: value.toFixed(precision),
@@ -74,14 +64,9 @@ function createTicks(domain: ValueDomain, precision: number): Tick[] {
   }).reverse();
 }
 
-function getPointY(value: number, domain: ValueDomain, topPadding: number, chartHeight: number, bottomPadding: number) {
-  const innerHeight = chartHeight - topPadding - bottomPadding;
+function getPointY(value: number, domain: ValueDomain, topPadding: number, chartHeight: number) {
   const range = domain.max - domain.min || 1;
-  return topPadding + ((domain.max - value) / range) * innerHeight;
-}
-
-function formatMetricValue(metric: ChartMetric, value: number) {
-  return `${value.toFixed(metric.precision)}${metric.unit}`;
+  return topPadding + ((domain.max - value) / range) * chartHeight;
 }
 
 function getObservationValue(
@@ -100,6 +85,7 @@ export function RecordCharts({
   observationValuesByRecordId,
 }: RecordChartsProps) {
   const [selectedRange, setSelectedRange] = useState<RangeOption>(7);
+  const [selectedTextMarkerKey, setSelectedTextMarkerKey] = useState<string | null>(null);
 
   const sortedRecords = useMemo(
     () => [...records].sort((a, b) => a.date.localeCompare(b.date)),
@@ -119,15 +105,22 @@ export function RecordCharts({
     const startDate = addDays(endDate, -(selectedRange - 1));
     const filteredRecords = sortedRecords.filter((record) => record.date >= startDate && record.date <= endDate);
 
-    return { endDate, startDate, filteredRecords };
+    return { startDate, endDate, filteredRecords };
   }, [selectedRange, sortedRecords]);
 
-  const chartGeometry = useMemo(() => {
-    const leftPadding = 68;
-    const rightPadding = 20;
+  const geometry = useMemo(() => {
+    const leftPadding = 84;
+    const rightPadding = 78;
     const dayCount = selectedRange;
-    const innerWidth = Math.max(320, (dayCount - 1) * 52);
+    const innerWidth = Math.max(340, (dayCount - 1) * 52);
     const chartWidth = leftPadding + rightPadding + innerWidth;
+    const graphTop = 16;
+    const graphHeight = 224;
+    const rowHeight = 34;
+    const rowsTop = graphTop + graphHeight + 28;
+    const rowsHeight = Math.max(sortedObservationFields.length, 1) * rowHeight;
+    const dateAxisHeight = 32;
+    const totalHeight = rowsTop + rowsHeight + dateAxisHeight;
     const labelStep = selectedRange === 30 ? 5 : 1;
 
     return {
@@ -136,12 +129,39 @@ export function RecordCharts({
       dayCount,
       innerWidth,
       chartWidth,
+      graphTop,
+      graphHeight,
+      rowsTop,
+      rowHeight,
+      rowsHeight,
+      totalHeight,
       labelStep,
       getX(date: string) {
         return leftPadding + (innerWidth / Math.max(dayCount - 1, 1)) * diffDays(rangeWindow.startDate, date);
       },
     };
-  }, [rangeWindow.startDate, selectedRange]);
+  }, [rangeWindow.startDate, selectedRange, sortedObservationFields.length]);
+
+  const weightValues = rangeWindow.filteredRecords.map((record) => record.weight);
+  const foodValues = rangeWindow.filteredRecords.map((record) => record.food);
+  const weightDomain = weightValues.length > 0 ? createValueDomain(weightValues, 0) : null;
+  const foodDomain = foodValues.length > 0 ? createValueDomain(foodValues, 0) : null;
+  const weightTicks = weightDomain ? createTicks(weightDomain, 1) : [];
+  const foodTicks = foodDomain ? createTicks(foodDomain, 0) : [];
+
+  const weightPoints = rangeWindow.filteredRecords.map((record) => ({
+    date: record.date,
+    value: record.weight,
+    x: geometry.getX(record.date),
+    y: weightDomain ? getPointY(record.weight, weightDomain, geometry.graphTop, geometry.graphHeight) : 0,
+  }));
+
+  const foodPoints = rangeWindow.filteredRecords.map((record) => ({
+    date: record.date,
+    value: record.food,
+    x: geometry.getX(record.date),
+    y: foodDomain ? getPointY(record.food, foodDomain, geometry.graphTop, geometry.graphHeight) : 0,
+  }));
 
   const observationRows = useMemo(() => {
     return sortedObservationFields.map((field) => {
@@ -153,14 +173,14 @@ export function RecordCharts({
 
         if (field.type === "checkbox") {
           if (observationValue.value === true) {
-            accumulator.push({ date: record.date, kind: "checkbox", value: true });
+            accumulator.push({ date: record.date, kind: "checkbox" });
           }
           return accumulator;
         }
 
-        const textValue = typeof observationValue.value === "string" ? observationValue.value.trim() : "";
-        if (textValue) {
-          accumulator.push({ date: record.date, kind: "text", value: textValue });
+        const note = typeof observationValue.value === "string" ? observationValue.value.trim() : "";
+        if (note) {
+          accumulator.push({ date: record.date, kind: "text", note });
         }
 
         return accumulator;
@@ -170,283 +190,292 @@ export function RecordCharts({
     });
   }, [observationValuesByRecordId, rangeWindow.filteredRecords, sortedObservationFields]);
 
-  const textObservationNotes = useMemo(() => {
+  const textMarkers = useMemo(() => {
     return observationRows.flatMap((row) =>
-      row.field.type === "text"
-        ? row.markers.map((marker) => ({
-            date: marker.date,
-            label: row.field.label,
-            value: typeof marker.value === "string" ? marker.value : "",
-          }))
-        : [],
+      row.markers.flatMap((marker) =>
+        marker.kind === "text"
+          ? [
+              {
+                key: `${row.field.id}-${marker.date}`,
+                date: marker.date,
+                label: row.field.label,
+                note: marker.note,
+              },
+            ]
+          : [],
+      ),
     );
   }, [observationRows]);
+
+  const selectedTextMarker =
+    textMarkers.find((marker) => marker.key === selectedTextMarkerKey) ?? textMarkers[0] ?? null;
+
+  const verticalLineBottom = geometry.rowsTop + geometry.rowsHeight;
 
   return (
     <section className="card chart-section-card">
       <div className="section-header chart-header-row">
         <div>
           <h2>推移グラフ</h2>
-          <p>実日付ベースの位置とY軸余白を持たせ、数値推移と観察項目を同じ日付軸で読めるようにしました。</p>
+          <p>体重と食事量を1つの時系列表に重ね、下段に観察項目タイムラインを統合しました。</p>
         </div>
 
-        <div className="range-toggle" role="tablist" aria-label="表示期間">
-          {RANGE_OPTIONS.map((rangeOption) => (
-            <button
-              key={rangeOption}
-              type="button"
-              className={`range-toggle-button${selectedRange === rangeOption ? " active" : ""}`}
-              onClick={() => setSelectedRange(rangeOption)}
-            >
-              {rangeOption}日
-            </button>
-          ))}
+        <div className="chart-header-tools">
+          <div className="chart-legend" aria-label="グラフ凡例">
+            <span className="chart-legend-item">
+              <span className="chart-legend-line weight" />体重
+            </span>
+            <span className="chart-legend-item">
+              <span className="chart-legend-line food" />食事量
+            </span>
+          </div>
+
+          <div className="range-toggle" role="tablist" aria-label="表示期間">
+            {RANGE_OPTIONS.map((rangeOption) => (
+              <button
+                key={rangeOption}
+                type="button"
+                className={`range-toggle-button${selectedRange === rangeOption ? " active" : ""}`}
+                onClick={() => setSelectedRange(rangeOption)}
+              >
+                {rangeOption}日
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {sortedRecords.length === 0 ? (
-        <p className="empty-text">記録が増えるとグラフで推移を確認できます。</p>
+        <p className="empty-text">記録が増えると統合グラフで推移を確認できます。</p>
       ) : (
-        <div className="chart-scroll-frame">
-          <div className="chart-timeline-stack" style={{ width: chartGeometry.chartWidth }}>
-            {METRICS.map((metric) => {
-              const windowRecords = rangeWindow.filteredRecords;
-              const values = windowRecords.map((point) => point[metric.key]);
+        <>
+          <div className="chart-scroll-frame">
+            <svg
+              width={geometry.chartWidth}
+              height={geometry.totalHeight}
+              viewBox={`0 0 ${geometry.chartWidth} ${geometry.totalHeight}`}
+              className="integrated-chart-svg"
+              role="img"
+              aria-label="体重と食事量、および観察項目の統合時系列グラフ"
+            >
+              <rect
+                x={geometry.leftPadding}
+                y={geometry.graphTop}
+                width={geometry.innerWidth}
+                height={geometry.graphHeight}
+                className="chart-plot-background"
+              />
 
-              if (values.length === 0) {
+              {Array.from({ length: geometry.dayCount }, (_, index) => {
+                const date = addDays(rangeWindow.startDate, index);
+                const x = geometry.leftPadding + (geometry.innerWidth / Math.max(geometry.dayCount - 1, 1)) * index;
+                const showLabel = index === 0 || index === geometry.dayCount - 1 || index % geometry.labelStep === 0;
                 return (
-                  <section key={metric.key} className="metric-chart-card chart-panel-card">
-                    <div className="metric-chart-header">
-                      <div>
-                        <h3>{metric.label}</h3>
-                        <p>選択期間内の記録がありません。</p>
-                      </div>
-                      <span className="mini-chart-dot" style={{ backgroundColor: metric.color }} />
-                    </div>
-                  </section>
-                );
-              }
-
-              const domain = createValueDomain(values, metric.minValue);
-              const ticks = createTicks(domain, metric.precision);
-              const chartHeight = 248;
-              const topPadding = 18;
-              const bottomPadding = 18;
-              const points = windowRecords.map((point) => ({
-                x: chartGeometry.getX(point.date),
-                y: getPointY(point[metric.key], domain, topPadding, chartHeight, bottomPadding),
-                value: point[metric.key],
-                fullDate: point.date,
-              }));
-              const polylinePoints = points.map((point) => `${point.x},${point.y}`).join(" ");
-              const latestValue = values[values.length - 1];
-
-              return (
-                <section key={metric.key} className="metric-chart-card chart-panel-card">
-                  <div className="metric-chart-header">
-                    <div>
-                      <h3>{metric.label}</h3>
-                      <p>
-                        最新値: {formatMetricValue(metric, latestValue)} / 表示範囲 {domain.min.toFixed(metric.precision)}〜{domain.max.toFixed(metric.precision)}
-                      </p>
-                    </div>
-                    <span className="mini-chart-dot" style={{ backgroundColor: metric.color }} />
-                  </div>
-
-                  <svg
-                    width={chartGeometry.chartWidth}
-                    height={chartHeight}
-                    viewBox={`0 0 ${chartGeometry.chartWidth} ${chartHeight}`}
-                    className="metric-chart-svg"
-                    role="img"
-                    aria-label={`${metric.label} の推移グラフ`}
-                  >
-                    {Array.from({ length: chartGeometry.dayCount }, (_, index) => {
-                      const date = addDays(rangeWindow.startDate, index);
-                      const x = chartGeometry.leftPadding + (chartGeometry.innerWidth / Math.max(chartGeometry.dayCount - 1, 1)) * index;
-                      return (
-                        <line
-                          key={`${metric.key}-v-${date}`}
-                          x1={x}
-                          y1={topPadding}
-                          x2={x}
-                          y2={chartHeight - bottomPadding}
-                          className="chart-vertical-line"
-                        />
-                      );
-                    })}
-
-                    {ticks.map((tick) => {
-                      const y = getPointY(tick.value, domain, topPadding, chartHeight, bottomPadding);
-                      return (
-                        <g key={`${metric.key}-${tick.value}`}>
-                          <line
-                            x1={chartGeometry.leftPadding}
-                            y1={y}
-                            x2={chartGeometry.chartWidth - chartGeometry.rightPadding}
-                            y2={y}
-                            className="chart-grid-line"
-                          />
-                          <text
-                            x={chartGeometry.leftPadding - 10}
-                            y={y + 4}
-                            textAnchor="end"
-                            className="chart-tick-label"
-                          >
-                            {tick.label}
-                          </text>
-                        </g>
-                      );
-                    })}
-
+                  <g key={`day-${date}`}>
                     <line
-                      x1={chartGeometry.leftPadding}
-                      y1={chartHeight - bottomPadding}
-                      x2={chartGeometry.chartWidth - chartGeometry.rightPadding}
-                      y2={chartHeight - bottomPadding}
-                      className="chart-axis"
+                      x1={x}
+                      y1={geometry.graphTop}
+                      x2={x}
+                      y2={verticalLineBottom}
+                      className="chart-vertical-line"
                     />
-
-                    {points.length > 1 ? (
-                      <polyline
-                        fill="none"
-                        stroke={metric.color}
-                        strokeWidth="3"
-                        strokeLinejoin="round"
-                        strokeLinecap="round"
-                        points={polylinePoints}
-                      />
+                    {showLabel ? (
+                      <text
+                        x={x}
+                        y={geometry.totalHeight - 8}
+                        textAnchor="middle"
+                        className="chart-date-label"
+                      >
+                        {formatShortDateLabel(date)}
+                      </text>
                     ) : null}
+                  </g>
+                );
+              })}
 
-                    {points.map((point) => (
-                      <g key={`${metric.key}-${point.fullDate}`}>
-                        <circle cx={point.x} cy={point.y} r="5" fill={metric.color} className="chart-point" />
-                        <circle cx={point.x} cy={point.y} r="9" className="chart-point-hit" />
-                        <title>{`${point.fullDate}: ${formatMetricValue(metric, point.value)}`}</title>
-                      </g>
-                    ))}
-                  </svg>
-                </section>
-              );
-            })}
+              {weightTicks.map((tick, index) => {
+                const y = geometry.graphTop + (geometry.graphHeight / GRID_STEPS) * index;
+                return (
+                  <g key={`grid-${tick.value}`}>
+                    <line
+                      x1={geometry.leftPadding}
+                      y1={y}
+                      x2={geometry.chartWidth - geometry.rightPadding}
+                      y2={y}
+                      className="chart-grid-line"
+                    />
+                    <text
+                      x={geometry.leftPadding - 10}
+                      y={y + 4}
+                      textAnchor="end"
+                      className="chart-tick-label weight-axis-label"
+                    >
+                      {tick.label}
+                    </text>
+                    {foodTicks[index] ? (
+                      <text
+                        x={geometry.chartWidth - geometry.rightPadding + 10}
+                        y={y + 4}
+                        textAnchor="start"
+                        className="chart-tick-label food-axis-label"
+                      >
+                        {foodTicks[index].label}
+                      </text>
+                    ) : null}
+                  </g>
+                );
+              })}
 
-            {sortedObservationFields.length > 0 ? (
-              <section className="metric-chart-card chart-panel-card observation-timeline-card">
-                <div className="metric-chart-header">
-                  <div>
-                    <h3>観察項目タイムライン</h3>
-                    <p>checkbox は実施日、text はメモあり日を同じ日付軸で確認できます。</p>
-                  </div>
-                  <span className="observation-chart-caption">● checkbox / ■ text</span>
-                </div>
+              <text
+                x={geometry.leftPadding - 10}
+                y={geometry.graphTop - 6}
+                textAnchor="end"
+                className="chart-axis-title weight-axis-label"
+              >
+                体重(kg)
+              </text>
+              <text
+                x={geometry.chartWidth - geometry.rightPadding + 10}
+                y={geometry.graphTop - 6}
+                textAnchor="start"
+                className="chart-axis-title food-axis-label"
+              >
+                食事量(g)
+              </text>
 
-                <svg
-                  width={chartGeometry.chartWidth}
-                  height={Math.max(120, 24 + observationRows.length * 34 + 38)}
-                  viewBox={`0 0 ${chartGeometry.chartWidth} ${Math.max(120, 24 + observationRows.length * 34 + 38)}`}
-                  className="metric-chart-svg"
-                  role="img"
-                  aria-label="観察項目タイムライン"
-                >
-                  {Array.from({ length: chartGeometry.dayCount }, (_, index) => {
-                    const date = addDays(rangeWindow.startDate, index);
-                    const x = chartGeometry.leftPadding + (chartGeometry.innerWidth / Math.max(chartGeometry.dayCount - 1, 1)) * index;
-                    const showLabel = index === 0 || index === chartGeometry.dayCount - 1 || index % chartGeometry.labelStep === 0;
-                    return (
-                      <g key={`obs-date-${date}`}>
-                        <line
-                          x1={x}
-                          y1={12}
-                          x2={x}
-                          y2={Math.max(120, 24 + observationRows.length * 34 + 38) - 26}
-                          className="chart-vertical-line"
-                        />
-                        {showLabel ? (
-                          <text
-                            x={x}
-                            y={Math.max(120, 24 + observationRows.length * 34 + 38) - 8}
-                            textAnchor="middle"
-                            className="chart-date-label"
+              {weightPoints.length > 1 ? (
+                <polyline
+                  fill="none"
+                  stroke="#5b7cfa"
+                  strokeWidth="3"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  points={weightPoints.map((point) => `${point.x},${point.y}`).join(" ")}
+                />
+              ) : null}
+              {foodPoints.length > 1 ? (
+                <polyline
+                  fill="none"
+                  stroke="#34b27b"
+                  strokeWidth="3"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  points={foodPoints.map((point) => `${point.x},${point.y}`).join(" ")}
+                />
+              ) : null}
+
+              {weightPoints.map((point) => (
+                <g key={`weight-${point.date}`}>
+                  <circle cx={point.x} cy={point.y} r="5" className="chart-point weight-point" />
+                  <title>{`${point.date} 体重 ${point.value.toFixed(1)}kg`}</title>
+                </g>
+              ))}
+              {foodPoints.map((point) => (
+                <g key={`food-${point.date}`}>
+                  <circle cx={point.x} cy={point.y} r="5" className="chart-point food-point" />
+                  <title>{`${point.date} 食事量 ${point.value.toFixed(0)}g`}</title>
+                </g>
+              ))}
+
+              <line
+                x1={geometry.leftPadding}
+                y1={geometry.rowsTop - 12}
+                x2={geometry.chartWidth - geometry.rightPadding}
+                y2={geometry.rowsTop - 12}
+                className="chart-section-divider"
+              />
+
+              {observationRows.length > 0 ? (
+                observationRows.map((row, index) => {
+                  const y = geometry.rowsTop + geometry.rowHeight * index + geometry.rowHeight / 2;
+                  return (
+                    <g key={row.field.id}>
+                      <text
+                        x={geometry.leftPadding - 10}
+                        y={y + 4}
+                        textAnchor="end"
+                        className="chart-tick-label observation-row-label"
+                      >
+                        {row.field.label}
+                      </text>
+                      <line
+                        x1={geometry.leftPadding}
+                        y1={y}
+                        x2={geometry.chartWidth - geometry.rightPadding}
+                        y2={y}
+                        className="observation-row-line"
+                      />
+
+                      {row.markers.map((marker) => {
+                        const x = geometry.getX(marker.date);
+                        return marker.kind === "checkbox" ? (
+                          <g key={`${row.field.id}-${marker.date}`}>
+                            <circle cx={x} cy={y} r="8" className="observation-marker observation-marker-checkbox" />
+                            <text x={x} y={y + 4} textAnchor="middle" className="observation-marker-label">
+                              ✓
+                            </text>
+                            <title>{`${row.field.label}: ${marker.date}`}</title>
+                          </g>
+                        ) : (
+                          <g
+                            key={`${row.field.id}-${marker.date}`}
+                            role="button"
+                            tabIndex={0}
+                            className="text-observation-marker-group"
+                            onClick={() => setSelectedTextMarkerKey(`${row.field.id}-${marker.date}`)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                setSelectedTextMarkerKey(`${row.field.id}-${marker.date}`);
+                              }
+                            }}
                           >
-                            {formatShortDateLabel(date)}
-                          </text>
-                        ) : null}
-                      </g>
-                    );
-                  })}
-
-                  {observationRows.map((row, index) => {
-                    const y = 30 + index * 34;
-                    return (
-                      <g key={row.field.id}>
-                        <text
-                          x={chartGeometry.leftPadding - 10}
-                          y={y + 4}
-                          textAnchor="end"
-                          className="chart-tick-label"
-                        >
-                          {row.field.label}
-                        </text>
-                        <line
-                          x1={chartGeometry.leftPadding}
-                          y1={y}
-                          x2={chartGeometry.chartWidth - chartGeometry.rightPadding}
-                          y2={y}
-                          className="chart-grid-line"
-                        />
-
-                        {row.markers.map((marker) => {
-                          const x = chartGeometry.getX(marker.date);
-                          return row.field.type === "checkbox" ? (
-                            <g key={`${row.field.id}-${marker.date}`}>
-                              <circle cx={x} cy={y} r="8" className="observation-marker observation-marker-checkbox" />
-                              <text x={x} y={y + 4} textAnchor="middle" className="observation-marker-label">
-                                ✓
-                              </text>
-                              <title>{`${row.field.label}: ${marker.date}`}</title>
-                            </g>
-                          ) : (
-                            <g key={`${row.field.id}-${marker.date}`}>
-                              <rect
-                                x={x - 9}
-                                y={y - 9}
-                                width="18"
-                                height="18"
-                                rx="4"
-                                className="observation-marker observation-marker-text"
-                              />
-                              <text x={x} y={y + 4} textAnchor="middle" className="observation-marker-label">
-                                メ
-                              </text>
-                              <title>{`${row.field.label}: ${marker.date}`}</title>
-                            </g>
-                          );
-                        })}
-                      </g>
-                    );
-                  })}
-                </svg>
-
-                {textObservationNotes.length > 0 ? (
-                  <div className="observation-note-panel">
-                    <p className="observation-note-title">期間内メモ</p>
-                    <ul className="observation-note-list">
-                      {textObservationNotes.map((note) => (
-                        <li key={`${note.label}-${note.date}-${note.value}`}>
-                          <strong>{note.date}</strong>
-                          <span>{note.label}</span>
-                          <p>{note.value}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <p className="observation-empty">選択期間内のテキスト観察メモはありません。</p>
-                )}
-              </section>
-            ) : null}
+                            <rect
+                              x={x - 9}
+                              y={y - 9}
+                              width="18"
+                              height="18"
+                              rx="4"
+                              className={`observation-marker observation-marker-text${selectedTextMarkerKey === `${row.field.id}-${marker.date}` ? " active" : ""}`}
+                            />
+                            <text x={x} y={y + 4} textAnchor="middle" className="observation-marker-label">
+                              メ
+                            </text>
+                            <title>{`${row.field.label}: ${marker.date}`}</title>
+                          </g>
+                        );
+                      })}
+                    </g>
+                  );
+                })
+              ) : (
+                <text
+                  x={geometry.leftPadding}
+                  y={geometry.rowsTop + 14}
+                  className="chart-tick-label"
+                >
+                  観察項目はまだありません。
+                </text>
+              )}
+            </svg>
           </div>
-        </div>
+
+          {textMarkers.length > 0 ? (
+            <div className="chart-note-detail">
+              <p className="chart-note-detail-title">選択中のメモ</p>
+              {selectedTextMarker ? (
+                <div className="chart-note-detail-body">
+                  <strong>
+                    {selectedTextMarker.date} / {selectedTextMarker.label}
+                  </strong>
+                  <p>{selectedTextMarker.note}</p>
+                </div>
+              ) : (
+                <p className="observation-empty">メモ印を選ぶと内容を表示します。</p>
+              )}
+            </div>
+          ) : null}
+        </>
       )}
     </section>
   );
