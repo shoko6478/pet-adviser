@@ -16,29 +16,31 @@ export function AnomalySummary({ result, targetDate }: AnomalySummaryProps) {
       <div className="anomaly-badge">判定: {result.level}</div>
       <p className="anomaly-message">{result.message}</p>
 
+      {result.signals.length > 1 ? (
+        <ul className="signal-list">
+          {result.signals.map((signal) => (
+            <li key={`${signal.metric}-${signal.level}`}>{signal.message}</li>
+          ))}
+        </ul>
+      ) : null}
+
       <dl className="average-grid">
         <div>
           <dt>体重平均</dt>
           <dd>
-            {result.averages.weight !== null
-              ? `${result.averages.weight.toFixed(2)} kg`
-              : "-"}
+            {result.averages.weight !== null ? `${result.averages.weight.toFixed(2)} kg` : "-"}
           </dd>
         </div>
         <div>
           <dt>食事平均</dt>
           <dd>
-            {result.averages.food !== null
-              ? `${result.averages.food.toFixed(1)} g`
-              : "-"}
+            {result.averages.food !== null ? `${result.averages.food.toFixed(1)} g` : "-"}
           </dd>
         </div>
         <div>
           <dt>トイレ平均</dt>
           <dd>
-            {result.averages.toilet !== null
-              ? `${result.averages.toilet.toFixed(1)} 回`
-              : "-"}
+            {result.averages.toilet !== null ? `${result.averages.toilet.toFixed(1)} 回` : "-"}
           </dd>
         </div>
       </dl>
