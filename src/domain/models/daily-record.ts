@@ -8,9 +8,9 @@ export interface DailyRecord {
   id: DailyRecordId;
   petId: PetId;
   date: RecordDate;
-  weight: number;
-  food: number;
-  toilet: number;
+  weight: number | null;
+  food: number | null;
+  toilet: number | null;
   createdAt: string;
   updatedAt: string;
   schemaVersion: SchemaVersion;

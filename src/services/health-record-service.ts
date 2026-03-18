@@ -9,7 +9,7 @@ import type {
   ObservationFieldType,
 } from "@/domain/models/observation-field-definition";
 import type { Pet, PetId, PetType } from "@/domain/models/pet";
-import type { PetProfile } from "@/domain/models/pet-profile";
+import type { PetProfile, PetSex } from "@/domain/models/pet-profile";
 import type { DailyObservationValueRepository } from "@/domain/repositories/daily-observation-value-repository";
 import type { DailyRecordRepository } from "@/domain/repositories/daily-record-repository";
 import type { ObservationFieldDefinitionRepository } from "@/domain/repositories/observation-field-definition-repository";
@@ -23,6 +23,7 @@ const DEFAULT_PETS: Array<{ name: string; type: PetType }> = [
   { type: "cat", name: "くろ" },
   { type: "dog", name: "たろう" },
 ];
+const SEEDED_KEY = "pet-adviser/seeded/v1";
 
 export interface CreatePetInput {
   name: string;
@@ -37,9 +38,9 @@ export interface SaveObservationValueInput {
 export interface SaveDailyRecordInput {
   petId: PetId;
   date: string;
-  weight: number;
-  food: number;
-  toilet: number;
+  weight: number | null;
+  food: number | null;
+  toilet: number | null;
   observationValues?: SaveObservationValueInput[];
 }
 
@@ -48,6 +49,10 @@ export interface SavePetProfileInput {
   name: string;
   type: PetType;
   birthMonth?: string;
+  sex?: PetSex;
+  sterilized?: boolean;
+  breed?: string;
+  photoDataUrl?: string;
   notes?: string;
 }
 
@@ -78,13 +83,23 @@ export class HealthRecordService {
     private readonly dailyObservationValueRepository: DailyObservationValueRepository,
   ) {}
 
+  async getPets(): Promise<Pet[]> {
+    return this.petRepository.findAll();
+  }
+
   async getOrCreatePets(): Promise<Pet[]> {
     const existingPets = await this.petRepository.findAll();
     if (existingPets.length > 0) {
+      this.markSeeded();
       return existingPets;
     }
 
+    if (this.hasSeeded()) {
+      return [];
+    }
+
     const createdPets = await Promise.all(DEFAULT_PETS.map((defaultPet) => this.createPet(defaultPet)));
+    this.markSeeded();
     return createdPets.map((snapshot) => snapshot.pet);
   }
 
@@ -112,8 +127,27 @@ export class HealthRecordService {
 
     await this.petRepository.save(pet);
     await this.petProfileRepository.save(profile);
+    this.markSeeded();
 
     return { pet, profile };
+  }
+
+  async deletePet(petId: PetId): Promise<void> {
+    const records = await this.dailyRecordRepository.findByPetId(petId);
+
+    for (const record of records) {
+      await this.dailyObservationValueRepository.deleteByRecordId(record.id);
+      await this.dailyRecordRepository.delete(record.id);
+    }
+
+    const definitions = await this.observationFieldDefinitionRepository.findByPetId(petId);
+    for (const definition of definitions) {
+      await this.observationFieldDefinitionRepository.delete(definition.id);
+    }
+
+    await this.dailyObservationValueRepository.deleteByPetId(petId);
+    await this.petProfileRepository.deleteByPetId(petId);
+    await this.petRepository.delete(petId);
   }
 
   async getPetSnapshot(petId: PetId): Promise<PetSnapshot | null> {
@@ -150,6 +184,10 @@ export class HealthRecordService {
     const nextProfile: PetProfile = {
       ...existingProfile,
       birthMonth: input.birthMonth || undefined,
+      sex: input.sex ?? "unknown",
+      sterilized: input.sterilized,
+      breed: input.breed?.trim() || undefined,
+      photoDataUrl: input.photoDataUrl || undefined,
       notes: input.notes?.trim() ?? "",
       updatedAt: now,
     };
@@ -183,7 +221,8 @@ export class HealthRecordService {
       petId: input.petId,
       label: trimmedLabel,
       type: input.type,
-      sortOrder: existingDefinitions.reduce((maxSortOrder, definition) => Math.max(maxSortOrder, definition.sortOrder), -1) + 1,
+      sortOrder:
+        existingDefinitions.reduce((maxSortOrder, definition) => Math.max(maxSortOrder, definition.sortOrder), -1) + 1,
       createdAt: now,
       updatedAt: now,
     };
@@ -269,6 +308,13 @@ export class HealthRecordService {
       );
 
       const normalizedValue = this.normalizeObservationValue(observationInput.value, definition.type);
+      if (this.isEmptyObservationValue(normalizedValue, definition.type)) {
+        if (existingValue) {
+          await this.dailyObservationValueRepository.delete(existingValue.id);
+        }
+        continue;
+      }
+
       const valueToSave: DailyObservationValue = existingValue
         ? {
             ...existingValue,
@@ -313,6 +359,10 @@ export class HealthRecordService {
     return type === "checkbox" ? Boolean(value) : String(value).trim();
   }
 
+  private isEmptyObservationValue(value: ObservationValue, type: ObservationFieldType): boolean {
+    return type === "checkbox" ? value !== true : String(value).trim() === "";
+  }
+
   private validateRecordInput(input: SaveDailyRecordInput): void {
     if (!input.date) {
       throw new Error("日付を入力してください。");
@@ -322,16 +372,37 @@ export class HealthRecordService {
       throw new Error("未来日の記録は保存できません。");
     }
 
-    if (input.weight <= 0 || Number.isNaN(input.weight)) {
-      throw new Error("体重は0より大きい数値を入力してください。");
+    if (input.weight !== null && (input.weight <= 0 || Number.isNaN(input.weight))) {
+      throw new Error("体重を入力する場合は、0より大きい数値にしてください。");
     }
 
-    if (input.food <= 0 || Number.isNaN(input.food)) {
-      throw new Error("食事量は0より大きい数値を入力してください。");
+    if (input.food !== null && (input.food < 0 || Number.isNaN(input.food))) {
+      throw new Error("食事量を入力する場合は、0以上の数値にしてください。");
     }
 
-    if (input.toilet < 0 || Number.isNaN(input.toilet)) {
-      throw new Error("トイレ回数は0以上の数値を入力してください。");
+    if (input.toilet !== null && (input.toilet < 0 || Number.isNaN(input.toilet))) {
+      throw new Error("トイレ回数を入力する場合は、0以上の数値にしてください。");
     }
+
+    const hasCoreValue = input.weight !== null || input.food !== null || input.toilet !== null;
+    const hasObservationValue = (input.observationValues ?? []).some((observationValue) => {
+      return typeof observationValue.value === "boolean"
+        ? observationValue.value
+        : observationValue.value.trim().length > 0;
+    });
+
+    if (!hasCoreValue && !hasObservationValue) {
+      throw new Error("体重・食事量・トイレ回数、または追加観察項目のいずれかを入力してください。");
+    }
+  }
+
+  private hasSeeded(): boolean {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(SEEDED_KEY) === "true";
+  }
+
+  private markSeeded(): void {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(SEEDED_KEY, "true");
   }
 }

@@ -4,7 +4,13 @@ import { useMemo, useState } from "react";
 import type { DailyObservationValue } from "@/domain/models/daily-observation-value";
 import type { DailyRecord } from "@/domain/models/daily-record";
 import type { ObservationFieldDefinition } from "@/domain/models/observation-field-definition";
-import { addDays, diffDays, formatShortDateLabel, getTodayDateString } from "@/lib/utils/date";
+import {
+  addDays,
+  diffDays,
+  formatShortDateLabel,
+  getDayOfWeek,
+  getTodayDateString,
+} from "@/lib/utils/date";
 
 interface RecordChartsProps {
   records: DailyRecord[];
@@ -17,6 +23,7 @@ type RangeOption = 7 | 30;
 type ValueDomain = {
   min: number;
   max: number;
+  step: number;
 };
 
 type Tick = {
@@ -44,21 +51,48 @@ function createValueDomain(values: number[], minValue: number): ValueDomain {
   const rawMin = Math.min(...values);
   const rawMax = Math.max(...values);
   const rawRange = rawMax - rawMin;
-  const fallbackPaddingBase = rawMax === 0 ? 1 : Math.abs(rawMax);
-  const padding = rawRange > 0 ? rawRange * 0.2 : Math.max(fallbackPaddingBase * 0.2, 1);
-  const min = Math.max(minValue, rawMin - padding);
-  let max = rawMax + padding;
+  const padding = rawRange > 0 ? rawRange * 0.15 : Math.max(rawMax * 0.1, 0.5);
+  const paddedMin = Math.max(minValue, rawMin - padding);
+  const paddedMax = rawMax + padding;
+  const step = getNiceStep((paddedMax - paddedMin) / GRID_STEPS);
+  const min = Math.floor(paddedMin / step) * step;
+  let max = Math.ceil(paddedMax / step) * step;
 
   if (max <= min) {
-    max = min + Math.max(padding, 1);
+    max = min + step * GRID_STEPS;
   }
 
-  return { min, max };
+  return { min, max, step };
 }
 
-function createTicks(domain: ValueDomain, precision: number): Tick[] {
-  return Array.from({ length: GRID_STEPS + 1 }, (_, index) => {
-    const value = domain.min + ((domain.max - domain.min) / GRID_STEPS) * index;
+function getNiceStep(roughStep: number): number {
+  if (!Number.isFinite(roughStep) || roughStep <= 0) {
+    return 0.5;
+  }
+
+  const exponent = Math.floor(Math.log10(roughStep));
+  const base = 10 ** exponent;
+  const normalized = roughStep / base;
+
+  if (normalized <= 1) return 1 * base;
+  if (normalized <= 2) return 2 * base;
+  if (normalized <= 2.5) return 2.5 * base;
+  if (normalized <= 5) return 5 * base;
+  return 10 * base;
+}
+
+function getTickPrecision(step: number): number {
+  if (step >= 1) return 0;
+  if (step >= 0.5) return 1;
+  return 2;
+}
+
+function createTicks(domain: ValueDomain): Tick[] {
+  const tickCount = Math.round((domain.max - domain.min) / domain.step);
+  const precision = getTickPrecision(domain.step);
+
+  return Array.from({ length: tickCount + 1 }, (_, index) => {
+    const value = domain.min + domain.step * index;
     return {
       value,
       label: value.toFixed(precision),
@@ -84,6 +118,10 @@ function getObservationValue(
 function formatTooltipDateLabel(date: string) {
   const [, month, day] = date.split("-").map(Number);
   return `${month}月${day}日`;
+}
+
+function formatMetricValue(value: number | null, unit: string, digits: number) {
+  return value === null ? "—" : `${value.toFixed(digits)}${unit}`;
 }
 
 export function RecordCharts({
@@ -134,10 +172,9 @@ export function RecordCharts({
     const rowHeight = 34;
     const rowsTop = graphTop + graphHeight + 26;
     const rowsHeight = Math.max(sortedObservationFields.length, 1) * rowHeight;
-    const dateAxisHeight = 34;
+    const dateAxisHeight = 44;
     const totalHeight = rowsTop + rowsHeight + dateAxisHeight;
     const plotWidth = rangeWindow.displayDayCount * SLOT_WIDTH;
-    const labelStep = selectedRange === 30 ? 5 : 1;
 
     return {
       fixedLeftWidth,
@@ -149,7 +186,6 @@ export function RecordCharts({
       rowsHeight,
       totalHeight,
       plotWidth,
-      labelStep,
       getSlotX(date: string) {
         return diffDays(rangeWindow.startDate, date) * SLOT_WIDTH;
       },
@@ -157,28 +193,34 @@ export function RecordCharts({
         return diffDays(rangeWindow.startDate, date) * SLOT_WIDTH + SLOT_WIDTH / 2;
       },
     };
-  }, [rangeWindow.displayDayCount, rangeWindow.startDate, selectedRange, sortedObservationFields.length]);
+  }, [rangeWindow.displayDayCount, rangeWindow.startDate, sortedObservationFields.length]);
 
-  const weightValues = rangeWindow.filteredRecords.map((record) => record.weight);
-  const foodValues = rangeWindow.filteredRecords.map((record) => record.food);
+  const weightValues = rangeWindow.filteredRecords.flatMap((record) => (record.weight === null ? [] : [record.weight]));
+  const foodValues = rangeWindow.filteredRecords.flatMap((record) => (record.food === null ? [] : [record.food]));
   const weightDomain = weightValues.length > 0 ? createValueDomain(weightValues, 0) : null;
   const foodDomain = foodValues.length > 0 ? createValueDomain(foodValues, 0) : null;
-  const weightTicks = weightDomain ? createTicks(weightDomain, 1) : [];
-  const foodTicks = foodDomain ? createTicks(foodDomain, 0) : [];
+  const weightTicks = weightDomain ? createTicks(weightDomain) : [];
+  const foodTicks = foodDomain ? createTicks(foodDomain) : [];
 
-  const weightPoints = rangeWindow.filteredRecords.map((record) => ({
-    date: record.date,
-    value: record.weight,
-    x: geometry.getSlotCenter(record.date),
-    y: weightDomain ? getPointY(record.weight, weightDomain, geometry.graphTop, geometry.graphHeight) : 0,
-  }));
+  const weightPoints = rangeWindow.filteredRecords.flatMap((record) => {
+    if (record.weight === null || !weightDomain) return [];
+    return [{
+      date: record.date,
+      value: record.weight,
+      x: geometry.getSlotCenter(record.date),
+      y: getPointY(record.weight, weightDomain, geometry.graphTop, geometry.graphHeight),
+    }];
+  });
 
-  const foodPoints = rangeWindow.filteredRecords.map((record) => ({
-    date: record.date,
-    value: record.food,
-    x: geometry.getSlotCenter(record.date),
-    y: foodDomain ? getPointY(record.food, foodDomain, geometry.graphTop, geometry.graphHeight) : 0,
-  }));
+  const foodPoints = rangeWindow.filteredRecords.flatMap((record) => {
+    if (record.food === null || !foodDomain) return [];
+    return [{
+      date: record.date,
+      value: record.food,
+      x: geometry.getSlotCenter(record.date),
+      y: getPointY(record.food, foodDomain, geometry.graphTop, geometry.graphHeight),
+    }];
+  });
 
   const observationRows = useMemo(() => {
     return sortedObservationFields.map((field) => {
@@ -284,8 +326,10 @@ export function RecordCharts({
           <div className="fixed-axis-chart-shell">
             <div className="fixed-axis-chart-left" aria-hidden="true">
               <svg width={geometry.fixedLeftWidth} height={geometry.totalHeight} className="fixed-axis-svg">
-                {weightTicks.map((tick, index) => {
-                  const y = geometry.graphTop + (geometry.graphHeight / GRID_STEPS) * index;
+                {weightTicks.map((tick) => {
+                  const y = weightDomain
+                    ? getPointY(tick.value, weightDomain, geometry.graphTop, geometry.graphHeight)
+                    : geometry.graphTop;
                   return (
                     <g key={`left-${tick.value}`}>
                       <text
@@ -346,8 +390,9 @@ export function RecordCharts({
                       style={{ left: Math.min(Math.max(activeDateX + 12, 8), geometry.plotWidth - 196) }}
                     >
                       <strong>{formatTooltipDateLabel(activeDate)}</strong>
-                      <span>体重: {activeRecord ? `${activeRecord.weight.toFixed(1)}kg` : "—"}</span>
-                      <span>食事量: {activeRecord ? `${activeRecord.food.toFixed(0)}g` : "—"}</span>
+                      <span>体重: {formatMetricValue(activeRecord?.weight ?? null, "kg", 1)}</span>
+                      <span>食事量: {formatMetricValue(activeRecord?.food ?? null, "g", 0)}</span>
+                      <span>トイレ回数: {formatMetricValue(activeRecord?.toilet ?? null, "回", 0)}</span>
                       {activeObservationSummary.map((summary) => (
                         <span key={summary}>{summary}</span>
                       ))}
@@ -380,8 +425,10 @@ export function RecordCharts({
                       />
                     ) : null}
 
-                    {weightTicks.map((tick, index) => {
-                      const y = geometry.graphTop + (geometry.graphHeight / GRID_STEPS) * index;
+                    {weightTicks.map((tick) => {
+                      const y = weightDomain
+                        ? getPointY(tick.value, weightDomain, geometry.graphTop, geometry.graphHeight)
+                        : geometry.graphTop;
                       return (
                         <line
                           key={`grid-${tick.value}`}
@@ -397,8 +444,8 @@ export function RecordCharts({
                     {rangeWindow.slots.map((date, index) => {
                       const slotX = index * SLOT_WIDTH;
                       const centerX = slotX + SLOT_WIDTH / 2;
-                      const showLabel = index === 0 || index === rangeWindow.slots.length - 1 || index % geometry.labelStep === 0;
                       const isToday = date === today;
+                      const isMajorTick = selectedRange === 30 ? getDayOfWeek(date) === 0 : true;
                       return (
                         <g key={date}>
                           <line
@@ -408,7 +455,14 @@ export function RecordCharts({
                             y2={gridBottom}
                             className={`chart-vertical-line${isToday ? " today" : ""}`}
                           />
-                          {showLabel ? (
+                          <line
+                            x1={centerX}
+                            y1={gridBottom + 4}
+                            x2={centerX}
+                            y2={gridBottom + (isMajorTick ? 12 : 8)}
+                            className={`chart-date-tick${isMajorTick ? " major" : " minor"}${isToday ? " today" : ""}`}
+                          />
+                          {isMajorTick ? (
                             <text
                               x={centerX}
                               y={geometry.totalHeight - 8}
@@ -543,8 +597,10 @@ export function RecordCharts({
 
             <div className="fixed-axis-chart-right" aria-hidden="true">
               <svg width={geometry.fixedRightWidth} height={geometry.totalHeight} className="fixed-axis-svg">
-                {foodTicks.map((tick, index) => {
-                  const y = geometry.graphTop + (geometry.graphHeight / GRID_STEPS) * index;
+                {foodTicks.map((tick) => {
+                  const y = foodDomain
+                    ? getPointY(tick.value, foodDomain, geometry.graphTop, geometry.graphHeight)
+                    : geometry.graphTop;
                   return (
                     <text
                       key={`right-${tick.value}`}

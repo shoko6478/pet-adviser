@@ -54,7 +54,7 @@ export function DailyRecordForm({
     >
       <div className="section-header">
         <h2>日次記録</h2>
-        <p>日付を切り替えると既存記録の編集もできます。</p>
+        <p>体重・食事量・トイレ回数のどれか1つ、または追加観察項目を入力すると保存できます。</p>
       </div>
 
       <div className="form-grid three-columns">
@@ -78,7 +78,7 @@ export function DailyRecordForm({
             min="0"
             value={values.weight}
             onChange={(event) => updateValue("weight", event.target.value)}
-            required
+            placeholder="未入力でも可"
           />
         </label>
 
@@ -91,7 +91,7 @@ export function DailyRecordForm({
             min="0"
             value={values.food}
             onChange={(event) => updateValue("food", event.target.value)}
-            required
+            placeholder="未入力でも可"
           />
         </label>
 
@@ -104,7 +104,7 @@ export function DailyRecordForm({
             min="0"
             value={values.toilet}
             onChange={(event) => updateValue("toilet", event.target.value)}
-            required
+            placeholder="未入力でも可"
           />
         </label>
       </div>
@@ -113,7 +113,7 @@ export function DailyRecordForm({
         <section className="observation-input-section">
           <div className="compact-header">
             <h3>追加観察項目</h3>
-            <p>選択中ペットに合わせた観察項目を同じ日次記録として保存します。</p>
+            <p>追加観察項目だけの記録も保存できます。</p>
           </div>
 
           <div className="form-grid two-columns">

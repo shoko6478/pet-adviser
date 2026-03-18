@@ -33,6 +33,21 @@ export function formatShortDateLabel(date: string): string {
   return `${parsed.getUTCMonth() + 1}/${parsed.getUTCDate()}`;
 }
 
+export function getDayOfWeek(date: string): number {
+  return parseDateStringAsUtc(date).getUTCDay();
+}
+
+export function getMonthDifference(fromMonth: string, toDate: string): number {
+  const [fromYear, fromMonthNumber] = fromMonth.split("-").map(Number);
+  const [toYear, toMonth] = toDate.split("-").map(Number);
+
+  if (!fromYear || !fromMonthNumber || !toYear || !toMonth) {
+    return 0;
+  }
+
+  return Math.max(0, (toYear - fromYear) * 12 + (toMonth - fromMonthNumber));
+}
+
 export function sortByDateDesc<T extends { date: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => b.date.localeCompare(a.date));
 }

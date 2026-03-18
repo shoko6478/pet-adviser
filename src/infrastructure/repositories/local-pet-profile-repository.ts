@@ -19,7 +19,9 @@ function normalizeProfile(value: unknown): PetProfile | null {
       raw.sex === "male" || raw.sex === "female" || raw.sex === "unknown"
         ? raw.sex
         : undefined,
+    sterilized: typeof raw.sterilized === "boolean" ? raw.sterilized : undefined,
     breed: typeof raw.breed === "string" ? raw.breed : undefined,
+    photoDataUrl: typeof raw.photoDataUrl === "string" ? raw.photoDataUrl : undefined,
     notes: typeof raw.notes === "string" ? raw.notes : undefined,
     createdAt: typeof raw.createdAt === "string" ? raw.createdAt : new Date().toISOString(),
     updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : new Date().toISOString(),
@@ -68,5 +70,9 @@ export class LocalPetProfileRepository implements PetProfileRepository {
     }
 
     this.writeAll(profiles);
+  }
+
+  async deleteByPetId(petId: PetId): Promise<void> {
+    this.writeAll(this.readAll().filter((profile) => profile.petId !== petId));
   }
 }

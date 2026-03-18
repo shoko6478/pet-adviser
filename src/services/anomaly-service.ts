@@ -20,9 +20,10 @@ export interface AnomalyResult {
   };
 }
 
-function average(values: number[]): number | null {
-  if (values.length === 0) return null;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+function average(values: Array<number | null>): number | null {
+  const normalized = values.filter((value): value is number => value !== null);
+  if (normalized.length === 0) return null;
+  return normalized.reduce((sum, value) => sum + value, 0) / normalized.length;
 }
 
 function pickStrongerLevel(current: AnomalyLevel, next: AnomalyLevel): AnomalyLevel {
@@ -59,6 +60,15 @@ export class AnomalyService {
       toilet: average(previousRecords.map((record) => record.toilet)),
     };
 
+    if (current.weight === null && current.food === null && current.toilet === null) {
+      return {
+        level: "normal",
+        message: "この日は追加観察項目のみ記録されています。主要な健康指標を入力すると比較できます。",
+        signals: [],
+        averages,
+      };
+    }
+
     if (previousRecords.length === 0) {
       return {
         level: "normal",
@@ -71,7 +81,7 @@ export class AnomalyService {
     let level: AnomalyLevel = "normal";
     const signals: AnomalySignal[] = [];
 
-    if (averages.food !== null && current.food < averages.food * 0.8) {
+    if (averages.food !== null && current.food !== null && current.food < averages.food * 0.8) {
       level = pickStrongerLevel(level, "warning");
       signals.push({
         metric: "food",
@@ -80,7 +90,7 @@ export class AnomalyService {
       });
     }
 
-    if (averages.toilet !== null && current.toilet > averages.toilet * 1.5) {
+    if (averages.toilet !== null && current.toilet !== null && current.toilet > averages.toilet * 1.5) {
       level = pickStrongerLevel(level, "warning");
       signals.push({
         metric: "toilet",
@@ -89,7 +99,7 @@ export class AnomalyService {
       });
     }
 
-    if (averages.weight !== null && current.weight < averages.weight * 0.95) {
+    if (averages.weight !== null && current.weight !== null && current.weight < averages.weight * 0.95) {
       level = pickStrongerLevel(level, "alert");
       signals.push({
         metric: "weight",

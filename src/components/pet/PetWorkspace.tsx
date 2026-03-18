@@ -32,10 +32,28 @@ import type { ObservationFieldDefinition } from "@/domain/models/observation-fie
 import type { Pet } from "@/domain/models/pet";
 import type { PetProfile } from "@/domain/models/pet-profile";
 import { getTodayDateString } from "@/lib/utils/date";
+import {
+  formatApproxAgeLabel,
+  formatApproxHumanAgeLabel,
+  getPetInitial,
+  getPetSexLabel,
+  getPetTypeLabel,
+  getSterilizedLabel,
+} from "@/lib/utils/pet-profile";
 
 interface PetWorkspaceProps {
   petId?: string;
   section: "profile" | "records";
+}
+
+function parseOptionalNumber(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
 export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
@@ -55,6 +73,10 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
     name: "",
     type: "cat",
     birthMonth: "",
+    sex: "unknown",
+    sterilized: false,
+    breed: "",
+    photoDataUrl: "",
     notes: "",
   });
   const [petCreateEditorValues, setPetCreateEditorValues] = useState<PetCreateFormValues>(() =>
@@ -65,6 +87,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingObservationField, setIsSavingObservationField] = useState(false);
   const [isCreatingPet, setIsCreatingPet] = useState(false);
+  const [isDeletingPet, setIsDeletingPet] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -102,7 +125,15 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
       const nextPet = nextPets.find((pet) => pet.id === targetPetId) ?? nextPets[0] ?? null;
 
       if (!nextPet) {
-        throw new Error("ペット情報の初期化に失敗しました。");
+        setPets([]);
+        setSelectedPet(null);
+        setSelectedProfile(null);
+        setRecords([]);
+        setObservationFieldDefinitions([]);
+        setObservationFormValues({});
+        setRecordObservationValuesByRecordId({});
+        setRecordFormValues(createEmptyRecordForm(today));
+        return;
       }
 
       if (!targetPetId || targetPetId !== nextPet.id) {
@@ -165,13 +196,57 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
 
   if (!selectedPet || !selectedProfile) {
     return (
-      <main className="page-shell">
-        <p className="status-text">ペット情報を表示できませんでした。</p>
+      <main className="page-shell app-layout empty-workspace-layout">
+        <div className="content-column">
+          <section className="hero card hero-card">
+            <div>
+              <p className="eyebrow">Pet Adviser</p>
+              <h1>ペットを登録してください</h1>
+              <p className="hero-copy">登録すると、基本情報や健康記録をすぐに管理できます。</p>
+            </div>
+          </section>
+          {errorMessage ? <div className="feedback error">{errorMessage}</div> : null}
+        </div>
+
+        <PetSidebar
+          pets={pets}
+          selectedPetId={null}
+          currentSection={section}
+          isCreatingPet={isCreatingPet}
+          createValues={petCreateEditorValues}
+          onSelect={(nextPetId) => {
+            setSuccessMessage(null);
+            router.push(getPetHref(nextPetId, section));
+          }}
+          onCreateValuesChange={(values) => {
+            setSuccessMessage(null);
+            setPetCreateEditorValues(values);
+          }}
+          onCreatePet={async (values) => {
+            setIsCreatingPet(true);
+            setErrorMessage(null);
+            setSuccessMessage(null);
+
+            try {
+              const snapshot = await healthRecordService.createPet(values);
+              const nextPets = await healthRecordService.getPets();
+              setPets(nextPets);
+              setPetCreateEditorValues(createEmptyPetCreateForm());
+              router.push(getPetHref(snapshot.pet.id, section));
+            } catch (error) {
+              setErrorMessage(error instanceof Error ? error.message : "ペットの追加に失敗しました。");
+            } finally {
+              setIsCreatingPet(false);
+            }
+          }}
+        />
       </main>
     );
   }
 
   const hasRecordForDate = records.some((record) => record.date === recordFormValues.date);
+  const approximateAge = formatApproxAgeLabel(selectedProfile.birthMonth);
+  const humanAge = formatApproxHumanAgeLabel(selectedPet.type, selectedProfile.birthMonth);
 
   return (
     <main className="page-shell app-layout">
@@ -196,7 +271,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
 
           try {
             const snapshot = await healthRecordService.createPet(values);
-            const nextPets = await healthRecordService.getOrCreatePets();
+            const nextPets = await healthRecordService.getPets();
             setPets(nextPets);
             setPetCreateEditorValues(createEmptyPetCreateForm());
             setSuccessMessage(`${snapshot.pet.name} を追加しました。`);
@@ -210,15 +285,45 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
       />
 
       <div className="content-column">
-        <section className="hero card hero-card">
-          <div>
-            <p className="eyebrow">Pet Adviser</p>
-            <h1>{selectedPet.name}</h1>
-            <p className="hero-copy">
-              {section === "records"
-                ? "日次記録・異常判定・推移グラフ・履歴を確認できます。"
-                : "名前や種別、誕生月、メモなどの基本情報を管理できます。"}
-            </p>
+        <section className="hero card hero-card hero-profile-card">
+          <div className="hero-profile-layout">
+            <div className="hero-photo-wrap">
+              <div className="profile-photo-preview hero-avatar">
+                {selectedProfile.photoDataUrl ? (
+                  <img src={selectedProfile.photoDataUrl} alt={`${selectedPet.name}の写真`} className="profile-photo-image" />
+                ) : (
+                  <span>{getPetInitial(selectedPet.name)}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="hero-main">
+              <p className="eyebrow">Pet Adviser</p>
+              <h1>{selectedPet.name}</h1>
+              <p className="hero-copy">
+                {section === "records"
+                  ? "日次記録・異常判定・推移グラフ・履歴を確認できます。"
+                  : "名前や種別、誕生月、写真、メモなどの基本情報を管理できます。"}
+              </p>
+
+              <div className="hero-chip-row">
+                <span className="hero-chip">{getPetTypeLabel(selectedPet.type)}</span>
+                <span className="hero-chip">性別: {getPetSexLabel(selectedProfile.sex)}</span>
+                <span className="hero-chip">去勢/避妊: {getSterilizedLabel(selectedProfile.sterilized)}</span>
+                {selectedProfile.breed ? <span className="hero-chip">{selectedProfile.breed}</span> : null}
+              </div>
+
+              <div className="hero-stat-grid">
+                <div className="hero-stat-card">
+                  <span>現在年齢</span>
+                  <strong>{approximateAge ?? "誕生月を登録すると表示されます"}</strong>
+                </div>
+                <div className="hero-stat-card">
+                  <span>人間年齢の概算</span>
+                  <strong>{humanAge ?? "誕生月を登録すると表示されます"}</strong>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -245,6 +350,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
             <PetProfileForm
               values={profileEditorValues}
               isSaving={isSavingProfile}
+              isDeleting={isDeletingPet}
               onChange={(nextValues) => {
                 setSuccessMessage(null);
                 setProfileEditorValues(nextValues);
@@ -260,9 +366,13 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
                     name: values.name,
                     type: values.type,
                     birthMonth: values.birthMonth,
+                    sex: values.sex,
+                    sterilized: values.sterilized,
+                    breed: values.breed,
+                    photoDataUrl: values.photoDataUrl,
                     notes: values.notes,
                   });
-                  const nextPets = await healthRecordService.getOrCreatePets();
+                  const nextPets = await healthRecordService.getPets();
                   setPets(nextPets);
                   setSelectedPet(snapshot.pet);
                   setSelectedProfile(snapshot.profile);
@@ -272,6 +382,32 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
                   setErrorMessage(error instanceof Error ? error.message : "基本情報の保存に失敗しました。");
                 } finally {
                   setIsSavingProfile(false);
+                }
+              }}
+              onDelete={async () => {
+                const confirmed = window.confirm(
+                  `「${selectedPet.name}」を削除します。基本情報・健康記録・追加観察項目もすべて削除されます。よろしいですか？`,
+                );
+                if (!confirmed) {
+                  return;
+                }
+
+                setIsDeletingPet(true);
+                setErrorMessage(null);
+                setSuccessMessage(null);
+
+                try {
+                  await healthRecordService.deletePet(selectedPet.id);
+                  const remainingPets = await healthRecordService.getPets();
+                  if (remainingPets.length > 0) {
+                    router.replace(getPetHref(remainingPets[0].id, "profile"));
+                  } else {
+                    router.replace("/");
+                  }
+                } catch (error) {
+                  setErrorMessage(error instanceof Error ? error.message : "ペットの削除に失敗しました。");
+                } finally {
+                  setIsDeletingPet(false);
                 }
               }}
             />
@@ -396,9 +532,9 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
                   const saved = await healthRecordService.saveDailyRecord({
                     petId: selectedPet.id,
                     date: values.date,
-                    weight: Number(values.weight),
-                    food: Number(values.food),
-                    toilet: Number(values.toilet),
+                    weight: parseOptionalNumber(values.weight),
+                    food: parseOptionalNumber(values.food),
+                    toilet: parseOptionalNumber(values.toilet),
                     observationValues: observationFieldDefinitions.map((definition) => ({
                       fieldDefinitionId: definition.id,
                       value: observationFormValues[definition.id] ?? (definition.type === "checkbox" ? false : ""),

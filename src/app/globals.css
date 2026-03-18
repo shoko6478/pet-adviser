@@ -993,3 +993,198 @@ a {
     font-size: 0.82rem;
   }
 }
+
+.hero-profile-card {
+  overflow: hidden;
+}
+
+.hero-profile-layout {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.hero-main {
+  flex: 1;
+  min-width: min(100%, 320px);
+}
+
+.profile-photo-preview {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #edf3ff 0%, #f6f9ff 100%);
+  color: #3a5aca;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 1.2rem;
+  font-weight: 700;
+  border: 1px solid #dbe4f5;
+}
+
+.profile-photo-preview.large {
+  width: 108px;
+  height: 108px;
+  border-radius: 24px;
+  font-size: 1rem;
+}
+
+.hero-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 24px;
+  font-size: 1.8rem;
+}
+
+.profile-photo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-photo-editor {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid #e7edf6;
+  border-radius: 16px;
+  background: #fbfdff;
+}
+
+.profile-photo-actions {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.inline-button {
+  width: auto;
+  padding: 0 18px;
+}
+
+.helper-text,
+.inline-error-text {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.helper-text {
+  color: #52607a;
+}
+
+.inline-error-text {
+  color: #a03a3a;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.hero-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.hero-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid #dbe4f5;
+  color: #30466f;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.hero-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.hero-stat-card {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid #dbe4f5;
+}
+
+.hero-stat-card span {
+  display: block;
+  margin-bottom: 6px;
+  color: #52607a;
+  font-size: 0.82rem;
+}
+
+.hero-stat-card strong {
+  color: #172033;
+}
+
+.checkbox-field.bordered {
+  justify-content: flex-start;
+}
+
+.checkbox-card-field > span {
+  margin-bottom: 6px;
+}
+
+.danger-zone-card {
+  border: 1px solid #ffdcdc;
+}
+
+.danger-zone-card .danger-button {
+  width: 100%;
+}
+
+.empty-home-card {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.empty-workspace-layout {
+  grid-template-columns: 1fr;
+}
+
+.chart-date-tick {
+  stroke: #93a5c4;
+  stroke-width: 1.5;
+}
+
+.chart-date-tick.minor {
+  opacity: 0.7;
+}
+
+.chart-date-tick.major {
+  stroke-width: 2;
+}
+
+@media (max-width: 767px) {
+  .profile-photo-editor,
+  .hero-profile-layout {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hero-stat-grid {
+    grid-template-columns: 1fr;
+  }
+}

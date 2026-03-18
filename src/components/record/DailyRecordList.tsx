@@ -4,6 +4,19 @@ interface DailyRecordListProps {
   records: DailyRecord[];
 }
 
+function renderMetric(label: string, value: number | null, unit: string, digits: number) {
+  if (value === null) {
+    return null;
+  }
+
+  return (
+    <span>
+      {label} {value.toFixed(digits)}
+      {unit}
+    </span>
+  );
+}
+
 export function DailyRecordList({ records }: DailyRecordListProps) {
   return (
     <section className="card">
@@ -16,16 +29,22 @@ export function DailyRecordList({ records }: DailyRecordListProps) {
         <p className="empty-text">まだ記録がありません。</p>
       ) : (
         <ul className="history-list">
-          {records.map((record) => (
-            <li key={record.id} className="history-item">
-              <div className="history-date">{record.date}</div>
-              <div className="history-values">
-                <span>体重 {record.weight.toFixed(1)}kg</span>
-                <span>食事 {record.food.toFixed(0)}g</span>
-                <span>トイレ {record.toilet}回</span>
-              </div>
-            </li>
-          ))}
+          {records.map((record) => {
+            const metrics = [
+              renderMetric("体重", record.weight, "kg", 1),
+              renderMetric("食事", record.food, "g", 0),
+              renderMetric("トイレ", record.toilet, "回", 0),
+            ].filter(Boolean);
+
+            return (
+              <li key={record.id} className="history-item">
+                <div className="history-date">{record.date}</div>
+                <div className="history-values">
+                  {metrics.length > 0 ? metrics : <span>追加観察項目のみ記録</span>}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>
