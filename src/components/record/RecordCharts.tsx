@@ -37,6 +37,8 @@ type ObservationMarker =
 
 const RANGE_OPTIONS: RangeOption[] = [7, 30];
 const GRID_STEPS = 4;
+const EXTRA_FUTURE_DAYS = 2;
+const SLOT_WIDTH = 56;
 
 function createValueDomain(values: number[], minValue: number): ValueDomain {
   const rawMin = Math.min(...values);
@@ -79,13 +81,21 @@ function getObservationValue(
   );
 }
 
+function formatTooltipDateLabel(date: string) {
+  const [, month, day] = date.split("-").map(Number);
+  return `${month}月${day}日`;
+}
+
 export function RecordCharts({
   records,
   observationFields,
   observationValuesByRecordId,
 }: RecordChartsProps) {
   const [selectedRange, setSelectedRange] = useState<RangeOption>(7);
+  const [activeDate, setActiveDate] = useState<string | null>(null);
   const [selectedTextMarkerKey, setSelectedTextMarkerKey] = useState<string | null>(null);
+
+  const today = getTodayDateString();
 
   const sortedRecords = useMemo(
     () => [...records].sort((a, b) => a.date.localeCompare(b.date)),
@@ -101,46 +111,53 @@ export function RecordCharts({
   );
 
   const rangeWindow = useMemo(() => {
-    const endDate = sortedRecords[sortedRecords.length - 1]?.date ?? getTodayDateString();
-    const startDate = addDays(endDate, -(selectedRange - 1));
-    const filteredRecords = sortedRecords.filter((record) => record.date >= startDate && record.date <= endDate);
+    const anchorEndDate = [sortedRecords[sortedRecords.length - 1]?.date ?? today, today].sort().at(-1) ?? today;
+    const startDate = addDays(anchorEndDate, -(selectedRange - 1));
+    const displayEndDate = addDays(anchorEndDate, EXTRA_FUTURE_DAYS);
+    const displayDayCount = diffDays(startDate, displayEndDate) + 1;
+    const slots = Array.from({ length: displayDayCount }, (_, index) => addDays(startDate, index));
+    const filteredRecords = sortedRecords.filter((record) => record.date >= startDate && record.date <= displayEndDate);
 
-    return { startDate, endDate, filteredRecords };
-  }, [selectedRange, sortedRecords]);
+    return { startDate, anchorEndDate, displayEndDate, displayDayCount, slots, filteredRecords };
+  }, [selectedRange, sortedRecords, today]);
+
+  const recordsByDate = useMemo(
+    () => Object.fromEntries(rangeWindow.filteredRecords.map((record) => [record.date, record])),
+    [rangeWindow.filteredRecords],
+  );
 
   const geometry = useMemo(() => {
-    const leftPadding = 84;
-    const rightPadding = 78;
-    const dayCount = selectedRange;
-    const innerWidth = Math.max(340, (dayCount - 1) * 52);
-    const chartWidth = leftPadding + rightPadding + innerWidth;
-    const graphTop = 16;
-    const graphHeight = 224;
+    const fixedLeftWidth = 124;
+    const fixedRightWidth = 88;
+    const graphTop = 18;
+    const graphHeight = 220;
     const rowHeight = 34;
-    const rowsTop = graphTop + graphHeight + 28;
+    const rowsTop = graphTop + graphHeight + 26;
     const rowsHeight = Math.max(sortedObservationFields.length, 1) * rowHeight;
-    const dateAxisHeight = 32;
+    const dateAxisHeight = 34;
     const totalHeight = rowsTop + rowsHeight + dateAxisHeight;
+    const plotWidth = rangeWindow.displayDayCount * SLOT_WIDTH;
     const labelStep = selectedRange === 30 ? 5 : 1;
 
     return {
-      leftPadding,
-      rightPadding,
-      dayCount,
-      innerWidth,
-      chartWidth,
+      fixedLeftWidth,
+      fixedRightWidth,
       graphTop,
       graphHeight,
-      rowsTop,
       rowHeight,
+      rowsTop,
       rowsHeight,
       totalHeight,
+      plotWidth,
       labelStep,
-      getX(date: string) {
-        return leftPadding + (innerWidth / Math.max(dayCount - 1, 1)) * diffDays(rangeWindow.startDate, date);
+      getSlotX(date: string) {
+        return diffDays(rangeWindow.startDate, date) * SLOT_WIDTH;
+      },
+      getSlotCenter(date: string) {
+        return diffDays(rangeWindow.startDate, date) * SLOT_WIDTH + SLOT_WIDTH / 2;
       },
     };
-  }, [rangeWindow.startDate, selectedRange, sortedObservationFields.length]);
+  }, [rangeWindow.displayDayCount, rangeWindow.startDate, selectedRange, sortedObservationFields.length]);
 
   const weightValues = rangeWindow.filteredRecords.map((record) => record.weight);
   const foodValues = rangeWindow.filteredRecords.map((record) => record.food);
@@ -152,14 +169,14 @@ export function RecordCharts({
   const weightPoints = rangeWindow.filteredRecords.map((record) => ({
     date: record.date,
     value: record.weight,
-    x: geometry.getX(record.date),
+    x: geometry.getSlotCenter(record.date),
     y: weightDomain ? getPointY(record.weight, weightDomain, geometry.graphTop, geometry.graphHeight) : 0,
   }));
 
   const foodPoints = rangeWindow.filteredRecords.map((record) => ({
     date: record.date,
     value: record.food,
-    x: geometry.getX(record.date),
+    x: geometry.getSlotCenter(record.date),
     y: foodDomain ? getPointY(record.food, foodDomain, geometry.graphTop, geometry.graphHeight) : 0,
   }));
 
@@ -207,18 +224,33 @@ export function RecordCharts({
     );
   }, [observationRows]);
 
+  const activeRecord = activeDate ? recordsByDate[activeDate] ?? null : null;
+  const activeObservationSummary = activeDate
+    ? observationRows.flatMap((row) => {
+        const marker = row.markers.find((item) => item.date === activeDate);
+        if (!marker) {
+          return [];
+        }
+
+        return [
+          row.field.type === "checkbox"
+            ? `${row.field.label}: 実施あり`
+            : `${row.field.label}: メモあり`,
+        ];
+      })
+    : [];
+
   const selectedTextMarker =
     textMarkers.find((marker) => marker.key === selectedTextMarkerKey) ?? textMarkers[0] ?? null;
 
-  const verticalLineBottom = geometry.rowsTop + geometry.rowsHeight;
+  const activeDateX = activeDate ? geometry.getSlotCenter(activeDate) : null;
+  const todayX = rangeWindow.slots.includes(today) ? geometry.getSlotX(today) : null;
+  const gridBottom = geometry.rowsTop + geometry.rowsHeight;
 
   return (
     <section className="card chart-section-card">
-      <div className="section-header chart-header-row">
-        <div>
-          <h2>推移グラフ</h2>
-          <p>体重と食事量を1つの時系列表に重ね、下段に観察項目タイムラインを統合しました。</p>
-        </div>
+      <div className="section-header chart-header-row compact-chart-header">
+        <h2>推移グラフ</h2>
 
         <div className="chart-header-tools">
           <div className="chart-legend" aria-label="グラフ凡例">
@@ -246,218 +278,296 @@ export function RecordCharts({
       </div>
 
       {sortedRecords.length === 0 ? (
-        <p className="empty-text">記録が増えると統合グラフで推移を確認できます。</p>
+        <p className="empty-text">記録が増えるとグラフで推移を確認できます。</p>
       ) : (
         <>
-          <div className="chart-scroll-frame">
-            <svg
-              width={geometry.chartWidth}
-              height={geometry.totalHeight}
-              viewBox={`0 0 ${geometry.chartWidth} ${geometry.totalHeight}`}
-              className="integrated-chart-svg"
-              role="img"
-              aria-label="体重と食事量、および観察項目の統合時系列グラフ"
-            >
-              <rect
-                x={geometry.leftPadding}
-                y={geometry.graphTop}
-                width={geometry.innerWidth}
-                height={geometry.graphHeight}
-                className="chart-plot-background"
-              />
-
-              {Array.from({ length: geometry.dayCount }, (_, index) => {
-                const date = addDays(rangeWindow.startDate, index);
-                const x = geometry.leftPadding + (geometry.innerWidth / Math.max(geometry.dayCount - 1, 1)) * index;
-                const showLabel = index === 0 || index === geometry.dayCount - 1 || index % geometry.labelStep === 0;
-                return (
-                  <g key={`day-${date}`}>
-                    <line
-                      x1={x}
-                      y1={geometry.graphTop}
-                      x2={x}
-                      y2={verticalLineBottom}
-                      className="chart-vertical-line"
-                    />
-                    {showLabel ? (
-                      <text
-                        x={x}
-                        y={geometry.totalHeight - 8}
-                        textAnchor="middle"
-                        className="chart-date-label"
-                      >
-                        {formatShortDateLabel(date)}
-                      </text>
-                    ) : null}
-                  </g>
-                );
-              })}
-
-              {weightTicks.map((tick, index) => {
-                const y = geometry.graphTop + (geometry.graphHeight / GRID_STEPS) * index;
-                return (
-                  <g key={`grid-${tick.value}`}>
-                    <line
-                      x1={geometry.leftPadding}
-                      y1={y}
-                      x2={geometry.chartWidth - geometry.rightPadding}
-                      y2={y}
-                      className="chart-grid-line"
-                    />
-                    <text
-                      x={geometry.leftPadding - 10}
-                      y={y + 4}
-                      textAnchor="end"
-                      className="chart-tick-label weight-axis-label"
-                    >
-                      {tick.label}
-                    </text>
-                    {foodTicks[index] ? (
-                      <text
-                        x={geometry.chartWidth - geometry.rightPadding + 10}
-                        y={y + 4}
-                        textAnchor="start"
-                        className="chart-tick-label food-axis-label"
-                      >
-                        {foodTicks[index].label}
-                      </text>
-                    ) : null}
-                  </g>
-                );
-              })}
-
-              <text
-                x={geometry.leftPadding - 10}
-                y={geometry.graphTop - 6}
-                textAnchor="end"
-                className="chart-axis-title weight-axis-label"
-              >
-                体重(kg)
-              </text>
-              <text
-                x={geometry.chartWidth - geometry.rightPadding + 10}
-                y={geometry.graphTop - 6}
-                textAnchor="start"
-                className="chart-axis-title food-axis-label"
-              >
-                食事量(g)
-              </text>
-
-              {weightPoints.length > 1 ? (
-                <polyline
-                  fill="none"
-                  stroke="#5b7cfa"
-                  strokeWidth="3"
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  points={weightPoints.map((point) => `${point.x},${point.y}`).join(" ")}
-                />
-              ) : null}
-              {foodPoints.length > 1 ? (
-                <polyline
-                  fill="none"
-                  stroke="#34b27b"
-                  strokeWidth="3"
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  points={foodPoints.map((point) => `${point.x},${point.y}`).join(" ")}
-                />
-              ) : null}
-
-              {weightPoints.map((point) => (
-                <g key={`weight-${point.date}`}>
-                  <circle cx={point.x} cy={point.y} r="5" className="chart-point weight-point" />
-                  <title>{`${point.date} 体重 ${point.value.toFixed(1)}kg`}</title>
-                </g>
-              ))}
-              {foodPoints.map((point) => (
-                <g key={`food-${point.date}`}>
-                  <circle cx={point.x} cy={point.y} r="5" className="chart-point food-point" />
-                  <title>{`${point.date} 食事量 ${point.value.toFixed(0)}g`}</title>
-                </g>
-              ))}
-
-              <line
-                x1={geometry.leftPadding}
-                y1={geometry.rowsTop - 12}
-                x2={geometry.chartWidth - geometry.rightPadding}
-                y2={geometry.rowsTop - 12}
-                className="chart-section-divider"
-              />
-
-              {observationRows.length > 0 ? (
-                observationRows.map((row, index) => {
-                  const y = geometry.rowsTop + geometry.rowHeight * index + geometry.rowHeight / 2;
+          <div className="fixed-axis-chart-shell">
+            <div className="fixed-axis-chart-left" aria-hidden="true">
+              <svg width={geometry.fixedLeftWidth} height={geometry.totalHeight} className="fixed-axis-svg">
+                {weightTicks.map((tick, index) => {
+                  const y = geometry.graphTop + (geometry.graphHeight / GRID_STEPS) * index;
                   return (
-                    <g key={row.field.id}>
+                    <g key={`left-${tick.value}`}>
                       <text
-                        x={geometry.leftPadding - 10}
+                        x={geometry.fixedLeftWidth - 12}
+                        y={y + 4}
+                        textAnchor="end"
+                        className="chart-tick-label weight-axis-label"
+                      >
+                        {tick.label}
+                      </text>
+                    </g>
+                  );
+                })}
+
+                <text
+                  x={geometry.fixedLeftWidth - 12}
+                  y={geometry.graphTop - 6}
+                  textAnchor="end"
+                  className="chart-axis-title weight-axis-label"
+                >
+                  体重(kg)
+                </text>
+
+                {observationRows.length > 0 ? (
+                  observationRows.map((row, index) => {
+                    const y = geometry.rowsTop + geometry.rowHeight * index + geometry.rowHeight / 2;
+                    return (
+                      <text
+                        key={row.field.id}
+                        x={geometry.fixedLeftWidth - 12}
                         y={y + 4}
                         textAnchor="end"
                         className="chart-tick-label observation-row-label"
                       >
                         {row.field.label}
                       </text>
-                      <line
-                        x1={geometry.leftPadding}
-                        y1={y}
-                        x2={geometry.chartWidth - geometry.rightPadding}
-                        y2={y}
-                        className="observation-row-line"
-                      />
+                    );
+                  })
+                ) : (
+                  <text
+                    x={geometry.fixedLeftWidth - 12}
+                    y={geometry.rowsTop + 14}
+                    textAnchor="end"
+                    className="chart-tick-label"
+                  >
+                    観察項目
+                  </text>
+                )}
+              </svg>
+            </div>
 
-                      {row.markers.map((marker) => {
-                        const x = geometry.getX(marker.date);
-                        return marker.kind === "checkbox" ? (
-                          <g key={`${row.field.id}-${marker.date}`}>
-                            <circle cx={x} cy={y} r="8" className="observation-marker observation-marker-checkbox" />
-                            <text x={x} y={y + 4} textAnchor="middle" className="observation-marker-label">
-                              ✓
+            <div className="fixed-axis-chart-scroll" role="presentation">
+              <div className="chart-scroll-frame">
+                <div className="plot-scroll-inner" style={{ width: geometry.plotWidth }}>
+                  {activeDate && activeDateX !== null ? (
+                    <div
+                      className="chart-tooltip"
+                      style={{ left: Math.min(Math.max(activeDateX + 12, 8), geometry.plotWidth - 196) }}
+                    >
+                      <strong>{formatTooltipDateLabel(activeDate)}</strong>
+                      <span>体重: {activeRecord ? `${activeRecord.weight.toFixed(1)}kg` : "—"}</span>
+                      <span>食事量: {activeRecord ? `${activeRecord.food.toFixed(0)}g` : "—"}</span>
+                      {activeObservationSummary.map((summary) => (
+                        <span key={summary}>{summary}</span>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <svg
+                    width={geometry.plotWidth}
+                    height={geometry.totalHeight}
+                    viewBox={`0 0 ${geometry.plotWidth} ${geometry.totalHeight}`}
+                    className="integrated-chart-svg"
+                    role="img"
+                    aria-label="体重と食事量、および観察項目の統合時系列グラフ"
+                  >
+                    <rect
+                      x={0}
+                      y={geometry.graphTop}
+                      width={geometry.plotWidth}
+                      height={geometry.graphHeight}
+                      className="chart-plot-background"
+                    />
+
+                    {todayX !== null ? (
+                      <rect
+                        x={todayX}
+                        y={geometry.graphTop}
+                        width={SLOT_WIDTH}
+                        height={gridBottom - geometry.graphTop}
+                        className="today-column-highlight"
+                      />
+                    ) : null}
+
+                    {weightTicks.map((tick, index) => {
+                      const y = geometry.graphTop + (geometry.graphHeight / GRID_STEPS) * index;
+                      return (
+                        <line
+                          key={`grid-${tick.value}`}
+                          x1={0}
+                          y1={y}
+                          x2={geometry.plotWidth}
+                          y2={y}
+                          className="chart-grid-line"
+                        />
+                      );
+                    })}
+
+                    {rangeWindow.slots.map((date, index) => {
+                      const slotX = index * SLOT_WIDTH;
+                      const centerX = slotX + SLOT_WIDTH / 2;
+                      const showLabel = index === 0 || index === rangeWindow.slots.length - 1 || index % geometry.labelStep === 0;
+                      const isToday = date === today;
+                      return (
+                        <g key={date}>
+                          <line
+                            x1={centerX}
+                            y1={geometry.graphTop}
+                            x2={centerX}
+                            y2={gridBottom}
+                            className={`chart-vertical-line${isToday ? " today" : ""}`}
+                          />
+                          {showLabel ? (
+                            <text
+                              x={centerX}
+                              y={geometry.totalHeight - 8}
+                              textAnchor="middle"
+                              className={`chart-date-label${isToday ? " today" : ""}`}
+                            >
+                              {formatShortDateLabel(date)}
                             </text>
-                            <title>{`${row.field.label}: ${marker.date}`}</title>
-                          </g>
-                        ) : (
-                          <g
-                            key={`${row.field.id}-${marker.date}`}
-                            role="button"
-                            tabIndex={0}
-                            className="text-observation-marker-group"
-                            onClick={() => setSelectedTextMarkerKey(`${row.field.id}-${marker.date}`)}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                setSelectedTextMarkerKey(`${row.field.id}-${marker.date}`);
-                              }
-                            }}
-                          >
-                            <rect
-                              x={x - 9}
-                              y={y - 9}
-                              width="18"
-                              height="18"
-                              rx="4"
-                              className={`observation-marker observation-marker-text${selectedTextMarkerKey === `${row.field.id}-${marker.date}` ? " active" : ""}`}
-                            />
-                            <text x={x} y={y + 4} textAnchor="middle" className="observation-marker-label">
-                              メ
-                            </text>
-                            <title>{`${row.field.label}: ${marker.date}`}</title>
-                          </g>
-                        );
-                      })}
-                    </g>
+                          ) : null}
+                        </g>
+                      );
+                    })}
+
+                    {activeDateX !== null ? (
+                      <line
+                        x1={activeDateX}
+                        y1={geometry.graphTop}
+                        x2={activeDateX}
+                        y2={gridBottom}
+                        className="chart-hover-line"
+                      />
+                    ) : null}
+
+                    {weightPoints.length > 1 ? (
+                      <polyline
+                        fill="none"
+                        stroke="#5b7cfa"
+                        strokeWidth="3"
+                        strokeLinejoin="round"
+                        strokeLinecap="round"
+                        points={weightPoints.map((point) => `${point.x},${point.y}`).join(" ")}
+                      />
+                    ) : null}
+                    {foodPoints.length > 1 ? (
+                      <polyline
+                        fill="none"
+                        stroke="#34b27b"
+                        strokeWidth="3"
+                        strokeLinejoin="round"
+                        strokeLinecap="round"
+                        points={foodPoints.map((point) => `${point.x},${point.y}`).join(" ")}
+                      />
+                    ) : null}
+
+                    {weightPoints.map((point) => (
+                      <circle key={`weight-${point.date}`} cx={point.x} cy={point.y} r="5" className="chart-point weight-point" />
+                    ))}
+                    {foodPoints.map((point) => (
+                      <circle key={`food-${point.date}`} cx={point.x} cy={point.y} r="5" className="chart-point food-point" />
+                    ))}
+
+                    <line
+                      x1={0}
+                      y1={geometry.rowsTop - 12}
+                      x2={geometry.plotWidth}
+                      y2={geometry.rowsTop - 12}
+                      className="chart-section-divider"
+                    />
+
+                    {observationRows.length > 0
+                      ? observationRows.map((row, index) => {
+                          const y = geometry.rowsTop + geometry.rowHeight * index + geometry.rowHeight / 2;
+                          return (
+                            <g key={row.field.id}>
+                              <line
+                                x1={0}
+                                y1={y}
+                                x2={geometry.plotWidth}
+                                y2={y}
+                                className="observation-row-line"
+                              />
+
+                              {row.markers.map((marker) => {
+                                const x = geometry.getSlotCenter(marker.date);
+                                return marker.kind === "checkbox" ? (
+                                  <g key={`${row.field.id}-${marker.date}`}>
+                                    <circle cx={x} cy={y} r="8" className="observation-marker observation-marker-checkbox" />
+                                    <text x={x} y={y + 4} textAnchor="middle" className="observation-marker-label">
+                                      ✓
+                                    </text>
+                                  </g>
+                                ) : (
+                                  <g
+                                    key={`${row.field.id}-${marker.date}`}
+                                    role="button"
+                                    tabIndex={0}
+                                    className="text-observation-marker-group"
+                                    onClick={() => setSelectedTextMarkerKey(`${row.field.id}-${marker.date}`)}
+                                    onKeyDown={(event) => {
+                                      if (event.key === "Enter" || event.key === " ") {
+                                        event.preventDefault();
+                                        setSelectedTextMarkerKey(`${row.field.id}-${marker.date}`);
+                                      }
+                                    }}
+                                  >
+                                    <rect
+                                      x={x - 9}
+                                      y={y - 9}
+                                      width="18"
+                                      height="18"
+                                      rx="4"
+                                      className={`observation-marker observation-marker-text${selectedTextMarkerKey === `${row.field.id}-${marker.date}` ? " active" : ""}`}
+                                    />
+                                    <text x={x} y={y + 4} textAnchor="middle" className="observation-marker-label">
+                                      メ
+                                    </text>
+                                  </g>
+                                );
+                              })}
+                            </g>
+                          );
+                        })
+                      : null}
+
+                    {rangeWindow.slots.map((date) => (
+                      <rect
+                        key={`hover-${date}`}
+                        x={geometry.getSlotX(date)}
+                        y={0}
+                        width={SLOT_WIDTH}
+                        height={gridBottom}
+                        className="chart-hover-hitbox"
+                        onMouseEnter={() => setActiveDate(date)}
+                        onMouseLeave={() => setActiveDate(null)}
+                        onPointerDown={() => setActiveDate(date)}
+                      />
+                    ))}
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="fixed-axis-chart-right" aria-hidden="true">
+              <svg width={geometry.fixedRightWidth} height={geometry.totalHeight} className="fixed-axis-svg">
+                {foodTicks.map((tick, index) => {
+                  const y = geometry.graphTop + (geometry.graphHeight / GRID_STEPS) * index;
+                  return (
+                    <text
+                      key={`right-${tick.value}`}
+                      x={12}
+                      y={y + 4}
+                      textAnchor="start"
+                      className="chart-tick-label food-axis-label"
+                    >
+                      {tick.label}
+                    </text>
                   );
-                })
-              ) : (
+                })}
+
                 <text
-                  x={geometry.leftPadding}
-                  y={geometry.rowsTop + 14}
-                  className="chart-tick-label"
+                  x={12}
+                  y={geometry.graphTop - 6}
+                  textAnchor="start"
+                  className="chart-axis-title food-axis-label"
                 >
-                  観察項目はまだありません。
+                  食事量(g)
                 </text>
-              )}
-            </svg>
+              </svg>
+            </div>
           </div>
 
           {textMarkers.length > 0 ? (
