@@ -8,10 +8,16 @@ import type {
   ObservationFieldDefinitionId,
   ObservationFieldType,
 } from "@/domain/models/observation-field-definition";
+import type {
+  MedicalHistoryCategory,
+  MedicalHistoryItem,
+  MedicalHistoryItemId,
+} from "@/domain/models/medical-history-item";
 import type { Pet, PetId, PetType } from "@/domain/models/pet";
 import type { PetProfile, PetSex } from "@/domain/models/pet-profile";
 import type { DailyObservationValueRepository } from "@/domain/repositories/daily-observation-value-repository";
 import type { DailyRecordRepository } from "@/domain/repositories/daily-record-repository";
+import type { MedicalHistoryItemRepository } from "@/domain/repositories/medical-history-item-repository";
 import type { ObservationFieldDefinitionRepository } from "@/domain/repositories/observation-field-definition-repository";
 import type { PetProfileRepository } from "@/domain/repositories/pet-profile-repository";
 import type { PetRepository } from "@/domain/repositories/pet-repository";
@@ -62,6 +68,28 @@ export interface CreateObservationFieldDefinitionInput {
   type: ObservationFieldType;
 }
 
+export interface SaveMedicalHistoryItemInput {
+  petId: PetId;
+  category: MedicalHistoryCategory;
+  title: string;
+  detail?: string;
+  startedAt?: string;
+  endedAt?: string;
+  isOngoing: boolean;
+  hospitalName?: string;
+}
+
+export interface UpdateMedicalHistoryItemInput {
+  id: MedicalHistoryItemId;
+  category?: MedicalHistoryCategory;
+  title?: string;
+  detail?: string;
+  startedAt?: string;
+  endedAt?: string;
+  isOngoing?: boolean;
+  hospitalName?: string;
+}
+
 export interface UpdateObservationFieldDefinitionInput {
   id: ObservationFieldDefinitionId;
   label?: string;
@@ -81,6 +109,7 @@ export class HealthRecordService {
     private readonly dailyRecordRepository: DailyRecordRepository,
     private readonly observationFieldDefinitionRepository: ObservationFieldDefinitionRepository,
     private readonly dailyObservationValueRepository: DailyObservationValueRepository,
+    private readonly medicalHistoryItemRepository: MedicalHistoryItemRepository,
   ) {}
 
   async getPets(): Promise<Pet[]> {
@@ -146,6 +175,7 @@ export class HealthRecordService {
     }
 
     await this.dailyObservationValueRepository.deleteByPetId(petId);
+    await this.medicalHistoryItemRepository.deleteByPetId(petId);
     await this.petProfileRepository.deleteByPetId(petId);
     await this.petRepository.delete(petId);
   }
@@ -229,6 +259,80 @@ export class HealthRecordService {
 
     await this.observationFieldDefinitionRepository.save(definition);
     return definition;
+  }
+
+  async getMedicalHistoryItems(petId: PetId): Promise<MedicalHistoryItem[]> {
+    const items = await this.medicalHistoryItemRepository.findByPetId(petId);
+    return [...items].sort((a, b) => {
+      const aPrimary = a.startedAt ?? "";
+      const bPrimary = b.startedAt ?? "";
+      return (
+        bPrimary.localeCompare(aPrimary) ||
+        b.updatedAt.localeCompare(a.updatedAt) ||
+        b.createdAt.localeCompare(a.createdAt)
+      );
+    });
+  }
+
+  async createMedicalHistoryItem(input: SaveMedicalHistoryItemInput): Promise<MedicalHistoryItem> {
+    await this.ensurePetExists(input.petId);
+
+    const normalized = this.normalizeMedicalHistoryInput(input);
+    const now = new Date().toISOString();
+    const item: MedicalHistoryItem = {
+      id: createId("med-history"),
+      petId: input.petId,
+      category: normalized.category,
+      title: normalized.title,
+      detail: normalized.detail,
+      startedAt: normalized.startedAt,
+      endedAt: normalized.endedAt,
+      isOngoing: normalized.isOngoing,
+      hospitalName: normalized.hospitalName,
+      createdAt: now,
+      updatedAt: now,
+      schemaVersion: 1,
+    };
+
+    await this.medicalHistoryItemRepository.save(item);
+    return item;
+  }
+
+  async updateMedicalHistoryItem(input: UpdateMedicalHistoryItemInput): Promise<MedicalHistoryItem> {
+    const existing = await this.medicalHistoryItemRepository.findById(input.id);
+    if (!existing) {
+      throw new Error("既往歴が見つかりませんでした。");
+    }
+
+    const normalized = this.normalizeMedicalHistoryInput({
+      petId: existing.petId,
+      category: input.category ?? existing.category,
+      title: input.title ?? existing.title,
+      detail: input.detail ?? existing.detail,
+      startedAt: input.startedAt ?? existing.startedAt,
+      endedAt: input.endedAt ?? existing.endedAt,
+      isOngoing: input.isOngoing ?? existing.isOngoing,
+      hospitalName: input.hospitalName ?? existing.hospitalName,
+    });
+
+    const nextItem: MedicalHistoryItem = {
+      ...existing,
+      category: normalized.category,
+      title: normalized.title,
+      detail: normalized.detail,
+      startedAt: normalized.startedAt,
+      endedAt: normalized.endedAt,
+      isOngoing: normalized.isOngoing,
+      hospitalName: normalized.hospitalName,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.medicalHistoryItemRepository.save(nextItem);
+    return nextItem;
+  }
+
+  async deleteMedicalHistoryItem(id: MedicalHistoryItemId): Promise<void> {
+    await this.medicalHistoryItemRepository.delete(id);
   }
 
   async updateObservationFieldDefinition(
@@ -357,6 +461,45 @@ export class HealthRecordService {
 
   private normalizeObservationValue(value: ObservationValue, type: ObservationFieldType): ObservationValue {
     return type === "checkbox" ? Boolean(value) : String(value).trim();
+  }
+
+  private async ensurePetExists(petId: PetId): Promise<void> {
+    const pet = await this.petRepository.findById(petId);
+    if (!pet) {
+      throw new Error("対象のペットが見つかりませんでした。");
+    }
+  }
+
+  private normalizeMedicalHistoryInput(input: SaveMedicalHistoryItemInput) {
+    const title = input.title.trim();
+    if (!title) {
+      throw new Error("タイトルを入力してください。");
+    }
+
+    const startedAt = input.startedAt?.trim() || undefined;
+    const endedAt = input.isOngoing ? undefined : input.endedAt?.trim() || undefined;
+
+    if (startedAt && !/^\d{4}-\d{2}-\d{2}$/.test(startedAt)) {
+      throw new Error("開始日は YYYY-MM-DD 形式で入力してください。");
+    }
+
+    if (endedAt && !/^\d{4}-\d{2}-\d{2}$/.test(endedAt)) {
+      throw new Error("終了日は YYYY-MM-DD 形式で入力してください。");
+    }
+
+    if (startedAt && endedAt && endedAt < startedAt) {
+      throw new Error("終了日は開始日以降の日付を入力してください。");
+    }
+
+    return {
+      category: input.category,
+      title,
+      detail: input.detail?.trim() || undefined,
+      startedAt,
+      endedAt,
+      isOngoing: input.isOngoing,
+      hospitalName: input.hospitalName?.trim() || undefined,
+    };
   }
 
   private isEmptyObservationValue(value: ObservationValue, type: ObservationFieldType): boolean {

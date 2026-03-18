@@ -254,6 +254,16 @@ a {
   padding: 8px;
 }
 
+.button-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.button-row > * {
+  flex: 1;
+}
+
 .section-tab {
   flex: 1;
   min-height: 44px;
@@ -1164,6 +1174,74 @@ a {
   grid-template-columns: 1fr;
 }
 
+.medical-history-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.medical-history-add-button {
+  width: auto;
+  padding: 0 18px;
+  flex-shrink: 0;
+}
+
+.medical-history-form-card {
+  border: 1px solid #e7edf6;
+  border-radius: 16px;
+  padding: 14px;
+  background: #f9fbff;
+  margin-bottom: 16px;
+}
+
+.medical-history-table-wrap {
+  overflow-x: auto;
+}
+
+.medical-history-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.medical-history-table th,
+.medical-history-table td {
+  text-align: left;
+  padding: 12px 10px;
+  border-bottom: 1px solid #e8eef7;
+  vertical-align: top;
+}
+
+.medical-history-table th {
+  color: #52607a;
+  font-size: 0.9rem;
+}
+
+.medical-history-title-cell strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.medical-history-title-cell p {
+  margin: 0;
+  color: #52607a;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.table-action-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.small-button {
+  min-height: 36px;
+  padding: 0 14px;
+}
+
 .chart-date-tick {
   stroke: #93a5c4;
   stroke-width: 1.5;
@@ -1186,5 +1264,54 @@ a {
 
   .hero-stat-grid {
     grid-template-columns: 1fr;
+  }
+
+  .medical-history-header {
+    flex-direction: column;
+  }
+
+  .medical-history-add-button {
+    width: 100%;
+  }
+
+  .medical-history-table {
+    min-width: 0;
+  }
+
+  .medical-history-table thead {
+    display: none;
+  }
+
+  .medical-history-table,
+  .medical-history-table tbody,
+  .medical-history-table tr,
+  .medical-history-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .medical-history-table tr {
+    border: 1px solid #e8eef7;
+    border-radius: 14px;
+    padding: 10px;
+    margin-bottom: 12px;
+  }
+
+  .medical-history-table td {
+    border: 0;
+    padding: 6px 0;
+  }
+
+  .medical-history-table td::before {
+    content: attr(data-label);
+    display: block;
+    color: #52607a;
+    font-size: 0.82rem;
+    font-weight: 700;
+    margin-bottom: 3px;
+  }
+
+  .button-row > * {
+    flex-basis: 100%;
   }
 }
