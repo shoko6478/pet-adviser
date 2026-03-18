@@ -22,6 +22,7 @@ import {
   type DailyRecordFormValues,
 } from "@/components/record/DailyRecordForm";
 import { DailyRecordList } from "@/components/record/DailyRecordList";
+import { MedicalHistorySection } from "@/components/record/MedicalHistorySection";
 import { ObservationFieldManager } from "@/components/record/ObservationFieldManager";
 import { PetProfileForm, type PetProfileFormValues } from "@/components/record/PetProfileForm";
 import { PetSidebar } from "@/components/record/PetSidebar";
@@ -31,6 +32,7 @@ import type { DailyRecord } from "@/domain/models/daily-record";
 import type { ObservationFieldDefinition } from "@/domain/models/observation-field-definition";
 import type { Pet } from "@/domain/models/pet";
 import type { PetProfile } from "@/domain/models/pet-profile";
+import type { MedicalHistoryItem } from "@/domain/models/medical-history-item";
 import { getTodayDateString } from "@/lib/utils/date";
 import {
   formatApproxAgeLabel,
@@ -65,6 +67,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
   const [records, setRecords] = useState<DailyRecord[]>([]);
   const [recordObservationValuesByRecordId, setRecordObservationValuesByRecordId] = useState<Record<string, DailyObservationValue[]>>({});
   const [observationFieldDefinitions, setObservationFieldDefinitions] = useState<ObservationFieldDefinition[]>([]);
+  const [medicalHistoryItems, setMedicalHistoryItems] = useState<MedicalHistoryItem[]>([]);
   const [recordFormValues, setRecordFormValues] = useState<DailyRecordFormValues>(() =>
     createEmptyRecordForm(today),
   );
@@ -86,6 +89,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
   const [isSavingRecord, setIsSavingRecord] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingObservationField, setIsSavingObservationField] = useState(false);
+  const [isSavingMedicalHistory, setIsSavingMedicalHistory] = useState(false);
   const [isCreatingPet, setIsCreatingPet] = useState(false);
   const [isDeletingPet, setIsDeletingPet] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -130,6 +134,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
         setSelectedProfile(null);
         setRecords([]);
         setObservationFieldDefinitions([]);
+        setMedicalHistoryItems([]);
         setObservationFormValues({});
         setRecordObservationValuesByRecordId({});
         setRecordFormValues(createEmptyRecordForm(today));
@@ -146,6 +151,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
       }
 
       const definitions = await healthRecordService.getObservationFieldDefinitions(nextPet.id);
+      const nextMedicalHistoryItems = await healthRecordService.getMedicalHistoryItems(nextPet.id);
       const dailyRecords = section === "records" ? await healthRecordService.getDailyRecords(nextPet.id) : [];
       const observationValuesByRecordId =
         section === "records" ? await loadObservationValuesByRecordId(dailyRecords) : {};
@@ -155,6 +161,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
       setSelectedProfile(snapshot.profile);
       setProfileEditorValues(toProfileFormValues(snapshot.pet, snapshot.profile));
       setObservationFieldDefinitions(definitions);
+      setMedicalHistoryItems(nextMedicalHistoryItems);
       setRecords(dailyRecords);
       setRecordObservationValuesByRecordId(observationValuesByRecordId);
 
@@ -184,6 +191,12 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
     const definitions = await healthRecordService.getObservationFieldDefinitions(targetPetId);
     setObservationFieldDefinitions(definitions);
     return definitions;
+  }
+
+  async function refreshMedicalHistoryItems(targetPetId: string) {
+    const items = await healthRecordService.getMedicalHistoryItems(targetPetId);
+    setMedicalHistoryItems(items);
+    return items;
   }
 
   if (isLoading) {
@@ -386,7 +399,7 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
               }}
               onDelete={async () => {
                 const confirmed = window.confirm(
-                  `「${selectedPet.name}」を削除します。基本情報・健康記録・追加観察項目もすべて削除されます。よろしいですか？`,
+                  `「${selectedPet.name}」を削除します。基本情報・既往歴・健康記録・追加観察項目もすべて削除されます。よろしいですか？`,
                 );
                 if (!confirmed) {
                   return;
@@ -408,6 +421,76 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
                   setErrorMessage(error instanceof Error ? error.message : "ペットの削除に失敗しました。");
                 } finally {
                   setIsDeletingPet(false);
+                }
+              }}
+            />
+
+            <MedicalHistorySection
+              items={medicalHistoryItems}
+              isSaving={isSavingMedicalHistory}
+              onCreate={async (values) => {
+                setIsSavingMedicalHistory(true);
+                setErrorMessage(null);
+                setSuccessMessage(null);
+
+                try {
+                  await healthRecordService.createMedicalHistoryItem({
+                    petId: selectedPet.id,
+                    category: values.category,
+                    title: values.title,
+                    detail: values.detail,
+                    startedAt: values.startedAt,
+                    endedAt: values.endedAt,
+                    isOngoing: values.isOngoing,
+                    hospitalName: values.hospitalName,
+                  });
+                  await refreshMedicalHistoryItems(selectedPet.id);
+                  setSuccessMessage("既往歴を追加しました。");
+                } catch (error) {
+                  setErrorMessage(error instanceof Error ? error.message : "既往歴の追加に失敗しました。");
+                  throw error;
+                } finally {
+                  setIsSavingMedicalHistory(false);
+                }
+              }}
+              onUpdate={async (itemId, values) => {
+                setIsSavingMedicalHistory(true);
+                setErrorMessage(null);
+                setSuccessMessage(null);
+
+                try {
+                  await healthRecordService.updateMedicalHistoryItem({
+                    id: itemId,
+                    category: values.category,
+                    title: values.title,
+                    detail: values.detail,
+                    startedAt: values.startedAt,
+                    endedAt: values.endedAt,
+                    isOngoing: values.isOngoing,
+                    hospitalName: values.hospitalName,
+                  });
+                  await refreshMedicalHistoryItems(selectedPet.id);
+                  setSuccessMessage("既往歴を更新しました。");
+                } catch (error) {
+                  setErrorMessage(error instanceof Error ? error.message : "既往歴の更新に失敗しました。");
+                  throw error;
+                } finally {
+                  setIsSavingMedicalHistory(false);
+                }
+              }}
+              onDelete={async (itemId) => {
+                setIsSavingMedicalHistory(true);
+                setErrorMessage(null);
+                setSuccessMessage(null);
+
+                try {
+                  await healthRecordService.deleteMedicalHistoryItem(itemId);
+                  await refreshMedicalHistoryItems(selectedPet.id);
+                  setSuccessMessage("既往歴を削除しました。");
+                } catch (error) {
+                  setErrorMessage(error instanceof Error ? error.message : "既往歴の削除に失敗しました。");
+                } finally {
+                  setIsSavingMedicalHistory(false);
                 }
               }}
             />

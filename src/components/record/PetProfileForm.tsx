@@ -207,7 +207,7 @@ export function PetProfileForm({
       <section className="card danger-zone-card">
         <div className="section-header">
           <h2>ペット削除</h2>
-          <p>このペットの基本情報・健康記録・追加観察項目をまとめて削除します。</p>
+          <p>このペットの基本情報・既往歴・健康記録・追加観察項目をまとめて削除します。</p>
         </div>
         <button type="button" className="danger-button" onClick={() => void onDelete()} disabled={isDeleting || isSaving}>
           {isDeleting ? "削除中..." : "このペットを削除"}
