@@ -5,20 +5,17 @@ import { sortByDateDesc } from "@/lib/utils/date";
 
 const DAILY_RECORDS_KEY = "pet-adviser/daily-records/v1";
 
+function toNullableNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function normalizeRecord(value: unknown): DailyRecord | null {
   if (!value || typeof value !== "object") return null;
 
   const raw = value as Partial<DailyRecord> & { id?: unknown; petId?: unknown; catId?: unknown };
   const petId = typeof raw.petId === "string" ? raw.petId : typeof raw.catId === "string" ? raw.catId : null;
 
-  if (
-    typeof raw.id !== "string" ||
-    typeof petId !== "string" ||
-    typeof raw.date !== "string" ||
-    typeof raw.weight !== "number" ||
-    typeof raw.food !== "number" ||
-    typeof raw.toilet !== "number"
-  ) {
+  if (typeof raw.id !== "string" || typeof petId !== "string" || typeof raw.date !== "string") {
     return null;
   }
 
@@ -26,9 +23,9 @@ function normalizeRecord(value: unknown): DailyRecord | null {
     id: raw.id,
     petId,
     date: raw.date,
-    weight: raw.weight,
-    food: raw.food,
-    toilet: raw.toilet,
+    weight: toNullableNumber(raw.weight),
+    food: toNullableNumber(raw.food),
+    toilet: toNullableNumber(raw.toilet),
     createdAt: typeof raw.createdAt === "string" ? raw.createdAt : new Date().toISOString(),
     updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : new Date().toISOString(),
     schemaVersion: 1,

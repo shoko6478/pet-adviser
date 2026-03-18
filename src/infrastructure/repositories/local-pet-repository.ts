@@ -87,4 +87,8 @@ export class LocalPetRepository implements PetRepository {
 
     this.writeAll(pets);
   }
+
+  async delete(id: PetId): Promise<void> {
+    this.writeAll(this.readAll().filter((pet) => pet.id !== id));
+  }
 }

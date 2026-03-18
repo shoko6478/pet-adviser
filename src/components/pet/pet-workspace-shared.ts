@@ -73,12 +73,16 @@ export function createEmptyPetCreateForm(): PetCreateFormValues {
   };
 }
 
+function toNullableFieldValue(value: number | null): string {
+  return value === null ? "" : String(value);
+}
+
 export function toRecordFormValues(record: DailyRecord): DailyRecordFormValues {
   return {
     date: record.date,
-    weight: String(record.weight),
-    food: String(record.food),
-    toilet: String(record.toilet),
+    weight: toNullableFieldValue(record.weight),
+    food: toNullableFieldValue(record.food),
+    toilet: toNullableFieldValue(record.toilet),
   };
 }
 
@@ -87,6 +91,10 @@ export function toProfileFormValues(pet: Pet, profile: PetProfile): PetProfileFo
     name: pet.name,
     type: pet.type,
     birthMonth: profile.birthMonth ?? "",
+    sex: profile.sex ?? "unknown",
+    sterilized: profile.sterilized ?? false,
+    breed: profile.breed ?? "",
+    photoDataUrl: profile.photoDataUrl ?? "",
     notes: profile.notes ?? "",
   };
 }

@@ -6,7 +6,9 @@ export interface PetProfile {
   petId: PetId;
   birthMonth?: string;
   sex?: PetSex;
+  sterilized?: boolean;
   breed?: string;
+  photoDataUrl?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
