@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Pet Adviser",
-  description: "猫の健康記録MVP",
+  description: "複数ペット対応の健康記録アプリ",
 };
 
 import type { ReactNode } from "react";

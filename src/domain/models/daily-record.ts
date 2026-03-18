@@ -1,4 +1,4 @@
-import type { CatId } from "./cat";
+import type { PetId } from "./pet";
 
 export type DailyRecordId = string;
 export type RecordDate = string;
@@ -6,7 +6,7 @@ export type SchemaVersion = 1;
 
 export interface DailyRecord {
   id: DailyRecordId;
-  catId: CatId;
+  petId: PetId;
   date: RecordDate;
   weight: number;
   food: number;

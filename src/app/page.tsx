@@ -1,5 +1,5 @@
-import { HealthRecordApp } from "@/components/record/HealthRecordApp";
+import { PetHomeRedirect } from "@/components/record/HealthRecordApp";
 
 export default function HomePage() {
-  return <HealthRecordApp />;
+  return <PetHomeRedirect />;
 }
