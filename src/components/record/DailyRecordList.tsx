@@ -9,7 +9,7 @@ export function DailyRecordList({ records }: DailyRecordListProps) {
     <section className="card">
       <div className="section-header">
         <h2>履歴一覧</h2>
-        <p>新しい順に表示します。</p>
+        <p>選択中ペットの記録を新しい順に表示します。</p>
       </div>
 
       {records.length === 0 ? (
