@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import type { DailyRecord } from "@/domain/models/daily-record";
+import { addDays, diffDays, formatShortDateLabel, getTodayDateString } from "@/lib/utils/date";
 
 interface RecordChartsProps {
   records: DailyRecord[];
@@ -18,6 +20,8 @@ type Tick = {
   value: number;
   label: string;
 };
+
+type RangeOption = 7 | 30;
 
 const METRICS: ChartMetric[] = [
   { key: "weight", label: "体重", color: "#5b7cfa", unit: "kg", precision: 1 },
@@ -50,15 +54,6 @@ function createTicks(values: number[], precision: number): Tick[] {
   }).reverse();
 }
 
-function getPointX(index: number, total: number, chartWidth: number, leftPadding: number, rightPadding: number) {
-  if (total <= 1) {
-    return leftPadding + (chartWidth - leftPadding - rightPadding) / 2;
-  }
-
-  const innerWidth = chartWidth - leftPadding - rightPadding;
-  return leftPadding + (innerWidth / (total - 1)) * index;
-}
-
 function getPointY(value: number, ticks: Tick[], topPadding: number, chartHeight: number, bottomPadding: number) {
   const max = ticks[0]?.value ?? value;
   const min = ticks[ticks.length - 1]?.value ?? value;
@@ -72,43 +67,85 @@ function formatMetricValue(metric: ChartMetric, value: number) {
 }
 
 export function RecordCharts({ records }: RecordChartsProps) {
-  const chartData = [...records]
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .map((record) => ({
-      id: record.id,
-      label: record.date.slice(5),
-      fullDate: record.date,
-      weight: Number(record.weight.toFixed(1)),
-      food: Number(record.food.toFixed(0)),
-      toilet: record.toilet,
-    }));
+  const [selectedRange, setSelectedRange] = useState<RangeOption>(7);
+
+  const sortedRecords = useMemo(
+    () => [...records].sort((a, b) => a.date.localeCompare(b.date)),
+    [records],
+  );
+
+  const rangeWindow = useMemo(() => {
+    const endDate = sortedRecords[sortedRecords.length - 1]?.date ?? getTodayDateString();
+    const startDate = addDays(endDate, -(selectedRange - 1));
+    const filteredRecords = sortedRecords.filter((record) => record.date >= startDate && record.date <= endDate);
+
+    return { endDate, startDate, filteredRecords };
+  }, [selectedRange, sortedRecords]);
 
   return (
     <section className="card">
-      <div className="section-header">
-        <h2>推移グラフ</h2>
-        <p>縦軸に目盛りを表示し、日付ラベルを揃えたうえで横スクロールにも対応しました。</p>
+      <div className="section-header chart-header-row">
+        <div>
+          <h2>推移グラフ</h2>
+          <p>直近7日 / 30日を実日付ベースで表示し、日付差に応じて横位置が変わるようにしました。</p>
+        </div>
+
+        <div className="range-toggle" role="tablist" aria-label="表示期間">
+          <button
+            type="button"
+            className={`range-toggle-button${selectedRange === 7 ? " active" : ""}`}
+            onClick={() => setSelectedRange(7)}
+          >
+            7日
+          </button>
+          <button
+            type="button"
+            className={`range-toggle-button${selectedRange === 30 ? " active" : ""}`}
+            onClick={() => setSelectedRange(30)}
+          >
+            30日
+          </button>
+        </div>
       </div>
 
-      {chartData.length === 0 ? (
+      {sortedRecords.length === 0 ? (
         <p className="empty-text">記録が増えるとグラフで推移を確認できます。</p>
       ) : (
         <div className="metric-chart-list">
           {METRICS.map((metric) => {
-            const values = chartData.map((point) => point[metric.key]);
+            const windowRecords = rangeWindow.filteredRecords;
+            const values = windowRecords.map((point) => point[metric.key]);
+
+            if (values.length === 0) {
+              return (
+                <section key={metric.key} className="metric-chart-card">
+                  <div className="metric-chart-header">
+                    <div>
+                      <h3>{metric.label}</h3>
+                      <p>選択期間内の記録がありません。</p>
+                    </div>
+                    <span className="mini-chart-dot" style={{ backgroundColor: metric.color }} />
+                  </div>
+                </section>
+              );
+            }
+
             const ticks = createTicks(values, metric.precision);
-            const chartWidth = Math.max(420, chartData.length * 88);
             const chartHeight = 260;
             const leftPadding = 52;
-            const rightPadding = 16;
+            const rightPadding = 18;
             const topPadding = 16;
             const bottomPadding = 42;
-            const points = chartData.map((point, index) => ({
-              x: getPointX(index, chartData.length, chartWidth, leftPadding, rightPadding),
+            const dayCount = selectedRange;
+            const innerWidth = Math.max(320, (dayCount - 1) * 44);
+            const chartWidth = leftPadding + rightPadding + innerWidth;
+            const labelStep = selectedRange === 30 ? 5 : 1;
+            const points = windowRecords.map((point) => ({
+              x: leftPadding + (innerWidth / Math.max(dayCount - 1, 1)) * diffDays(rangeWindow.startDate, point.date),
               y: getPointY(point[metric.key], ticks, topPadding, chartHeight, bottomPadding),
               value: point[metric.key],
-              label: point.label,
-              fullDate: point.fullDate,
+              label: formatShortDateLabel(point.date),
+              fullDate: point.date,
             }));
             const polylinePoints = points.map((point) => `${point.x},${point.y}`).join(" ");
             const latestValue = values[values.length - 1];
@@ -150,6 +187,28 @@ export function RecordCharts({ records }: RecordChartsProps) {
                       );
                     })}
 
+                    {Array.from({ length: dayCount }, (_, index) => {
+                      const date = addDays(rangeWindow.startDate, index);
+                      const x = leftPadding + (innerWidth / Math.max(dayCount - 1, 1)) * index;
+                      const showLabel = index === 0 || index === dayCount - 1 || index % labelStep === 0;
+                      return (
+                        <g key={`${metric.key}-${date}`}>
+                          <line
+                            x1={x}
+                            y1={topPadding}
+                            x2={x}
+                            y2={chartHeight - bottomPadding}
+                            className="chart-vertical-line"
+                          />
+                          {showLabel ? (
+                            <text x={x} y={chartHeight - 14} textAnchor="middle" className="chart-date-label">
+                              {formatShortDateLabel(date)}
+                            </text>
+                          ) : null}
+                        </g>
+                      );
+                    })}
+
                     <line
                       x1={leftPadding}
                       y1={chartHeight - bottomPadding}
@@ -158,26 +217,21 @@ export function RecordCharts({ records }: RecordChartsProps) {
                       className="chart-axis"
                     />
 
-                    <polyline
-                      fill="none"
-                      stroke={metric.color}
-                      strokeWidth="3"
-                      strokeLinejoin="round"
-                      strokeLinecap="round"
-                      points={polylinePoints}
-                    />
+                    {points.length > 1 ? (
+                      <polyline
+                        fill="none"
+                        stroke={metric.color}
+                        strokeWidth="3"
+                        strokeLinejoin="round"
+                        strokeLinecap="round"
+                        points={polylinePoints}
+                      />
+                    ) : null}
 
                     {points.map((point) => (
                       <g key={`${metric.key}-${point.fullDate}`}>
                         <circle cx={point.x} cy={point.y} r="4" fill={metric.color} />
-                        <text
-                          x={point.x}
-                          y={chartHeight - 14}
-                          textAnchor="middle"
-                          className="chart-date-label"
-                        >
-                          {point.label}
-                        </text>
+                        <title>{`${point.fullDate}: ${formatMetricValue(metric, point.value)}`}</title>
                       </g>
                     ))}
                   </svg>

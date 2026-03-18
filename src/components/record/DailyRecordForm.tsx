@@ -1,5 +1,8 @@
 "use client";
 
+import type { ObservationFieldDefinition } from "@/domain/models/observation-field-definition";
+import { getTodayDateString } from "@/lib/utils/date";
+
 export interface DailyRecordFormValues {
   date: string;
   weight: string;
@@ -7,19 +10,27 @@ export interface DailyRecordFormValues {
   toilet: string;
 }
 
+export type DailyObservationFormValues = Record<string, string | boolean>;
+
 interface DailyRecordFormProps {
   values: DailyRecordFormValues;
+  observationFields: ObservationFieldDefinition[];
+  observationValues: DailyObservationFormValues;
   isSaving: boolean;
   submitLabel: string;
   onChange: (nextValues: DailyRecordFormValues) => void;
+  onObservationValuesChange: (nextValues: DailyObservationFormValues) => void;
   onSubmit: (values: DailyRecordFormValues) => Promise<void>;
 }
 
 export function DailyRecordForm({
   values,
+  observationFields,
+  observationValues,
   isSaving,
   submitLabel,
   onChange,
+  onObservationValuesChange,
   onSubmit,
 }: DailyRecordFormProps) {
   function updateValue<K extends keyof DailyRecordFormValues>(
@@ -27,6 +38,10 @@ export function DailyRecordForm({
     value: DailyRecordFormValues[K],
   ) {
     onChange({ ...values, [key]: value });
+  }
+
+  function updateObservationValue(fieldId: string, value: string | boolean) {
+    onObservationValuesChange({ ...observationValues, [fieldId]: value });
   }
 
   return (
@@ -47,7 +62,7 @@ export function DailyRecordForm({
           <span>日付</span>
           <input
             type="date"
-            max={new Date().toISOString().slice(0, 10)}
+            max={getTodayDateString()}
             value={values.date}
             onChange={(event) => updateValue("date", event.target.value)}
             required
@@ -93,6 +108,40 @@ export function DailyRecordForm({
           />
         </label>
       </div>
+
+      {observationFields.length > 0 ? (
+        <section className="observation-input-section">
+          <div className="compact-header">
+            <h3>追加観察項目</h3>
+            <p>選択中ペットに合わせた観察項目を同じ日次記録として保存します。</p>
+          </div>
+
+          <div className="form-grid two-columns">
+            {observationFields.map((field) =>
+              field.type === "checkbox" ? (
+                <label key={field.id} className="checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(observationValues[field.id])}
+                    onChange={(event) => updateObservationValue(field.id, event.target.checked)}
+                  />
+                  <span>{field.label}</span>
+                </label>
+              ) : (
+                <label key={field.id} className="field">
+                  <span>{field.label}</span>
+                  <input
+                    type="text"
+                    value={String(typeof observationValues[field.id] === "string" ? observationValues[field.id] : "")}
+                    onChange={(event) => updateObservationValue(field.id, event.target.value)}
+                    placeholder="自由にメモを入力"
+                  />
+                </label>
+              ),
+            )}
+          </div>
+        </section>
+      ) : null}
 
       <button type="submit" className="primary-button" disabled={isSaving}>
         {isSaving ? "保存中..." : submitLabel}

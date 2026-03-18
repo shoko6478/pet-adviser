@@ -488,3 +488,145 @@ a {
     flex-direction: column;
   }
 }
+
+.chart-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.range-toggle {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 999px;
+  background: #f3f6fb;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.range-toggle-button,
+.ghost-button,
+.danger-button {
+  border: 0;
+  border-radius: 999px;
+  min-height: 38px;
+  padding: 0 14px;
+  font-weight: 700;
+}
+
+.range-toggle-button {
+  background: transparent;
+  color: #52607a;
+}
+
+.range-toggle-button.active {
+  background: #ffffff;
+  color: #2f61cc;
+  box-shadow: 0 2px 8px rgba(47, 97, 204, 0.14);
+}
+
+.chart-vertical-line {
+  stroke: #eef3fb;
+  stroke-width: 1;
+}
+
+.observation-input-section {
+  margin: 8px 0 16px;
+  padding-top: 8px;
+  border-top: 1px solid #ebeff5;
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #d5deeb;
+  border-radius: 12px;
+  background: #fbfcff;
+}
+
+.checkbox-field input {
+  width: 18px;
+  height: 18px;
+}
+
+.checkbox-field span {
+  font-weight: 600;
+  font-size: 0.94rem;
+}
+
+.observation-manager-form {
+  margin-bottom: 14px;
+}
+
+.observation-definition-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.observation-definition-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid #e7edf6;
+  border-radius: 14px;
+  background: #fbfdff;
+}
+
+.observation-definition-item strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.observation-definition-item p {
+  margin: 0;
+  color: #52607a;
+  font-size: 0.9rem;
+}
+
+.observation-definition-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.ghost-button {
+  background: #eef3ff;
+  color: #2f61cc;
+}
+
+.danger-button {
+  background: #fff0f0;
+  color: #a03a3a;
+}
+
+.ghost-button:disabled,
+.danger-button:disabled,
+.range-toggle-button:disabled {
+  opacity: 0.55;
+}
+
+@media (max-width: 767px) {
+  .chart-header-row,
+  .observation-definition-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .range-toggle {
+    align-self: flex-start;
+  }
+
+  .observation-definition-actions {
+    justify-content: stretch;
+  }
+}

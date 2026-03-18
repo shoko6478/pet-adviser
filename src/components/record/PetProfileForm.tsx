@@ -1,6 +1,7 @@
 "use client";
 
 import type { PetType } from "@/domain/models/pet";
+import { formatDateForInput } from "@/lib/utils/date";
 
 export interface PetProfileFormValues {
   name: string;
@@ -66,7 +67,7 @@ export function PetProfileForm({ values, isSaving, onChange, onSubmit }: PetProf
           <input
             type="month"
             value={values.birthMonth}
-            max={new Date().toISOString().slice(0, 7)}
+            max={formatDateForInput(new Date()).slice(0, 7)}
             onChange={(event) => updateValue("birthMonth", event.target.value)}
           />
         </label>
