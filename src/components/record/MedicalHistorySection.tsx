@@ -19,6 +19,15 @@ interface MedicalHistorySectionProps {
 
 type SortDirection = "asc" | "desc";
 type SortKey = "category" | "title" | "startedAt" | "endedAt" | "isOngoing" | "hospitalName";
+type ColumnKey =
+  | "category"
+  | "title"
+  | "startedAt"
+  | "endedAt"
+  | "isOngoing"
+  | "hospitalName"
+  | "detail"
+  | "actions";
 
 interface SortState {
   key: SortKey;
@@ -26,6 +35,58 @@ interface SortState {
 }
 
 const DETAIL_PREVIEW_LENGTH = 50;
+const COLUMN_WIDTHS_STORAGE_KEY = "pet-adviser/medical-history-table-widths/v1";
+const DEFAULT_COLUMN_WIDTHS: Record<ColumnKey, number> = {
+  category: 120,
+  title: 220,
+  startedAt: 120,
+  endedAt: 120,
+  isOngoing: 96,
+  hospitalName: 180,
+  detail: 320,
+  actions: 140,
+};
+const MIN_COLUMN_WIDTHS: Record<ColumnKey, number> = {
+  category: 96,
+  title: 160,
+  startedAt: 110,
+  endedAt: 110,
+  isOngoing: 88,
+  hospitalName: 140,
+  detail: 220,
+  actions: 120,
+};
+
+function loadPersistedColumnWidths(): Partial<Record<ColumnKey, number>> {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  try {
+    const raw = window.localStorage.getItem(COLUMN_WIDTHS_STORAGE_KEY);
+    if (!raw) {
+      return {};
+    }
+
+    const parsed = JSON.parse(raw) as Partial<Record<ColumnKey, unknown>>;
+    return Object.fromEntries(
+      Object.entries(DEFAULT_COLUMN_WIDTHS).flatMap(([key]) => {
+        const width = parsed[key as ColumnKey];
+        return typeof width === "number" && Number.isFinite(width) ? [[key, width]] : [];
+      }),
+    ) as Partial<Record<ColumnKey, number>>;
+  } catch {
+    return {};
+  }
+}
+
+function savePersistedColumnWidths(widths: Record<ColumnKey, number>): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(widths));
+}
 
 function formatDate(value?: string): string {
   return value || "—";
@@ -78,6 +139,10 @@ export function MedicalHistorySection({
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [sortState, setSortState] = useState<SortState | null>(null);
   const [detailModalItem, setDetailModalItem] = useState<MedicalHistoryItem | null>(null);
+  const [columnWidths, setColumnWidths] = useState<Record<ColumnKey, number>>(() => ({
+    ...DEFAULT_COLUMN_WIDTHS,
+    ...loadPersistedColumnWidths(),
+  }));
 
   const editingItem = useMemo(
     () => items.find((item) => item.id === editingItemId) ?? null,
@@ -134,6 +199,10 @@ export function MedicalHistorySection({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [detailModalItem]);
 
+  useEffect(() => {
+    savePersistedColumnWidths(columnWidths);
+  }, [columnWidths]);
+
   function updateValue<K extends keyof MedicalHistoryFormValues>(
     key: K,
     value: MedicalHistoryFormValues[K],
@@ -189,6 +258,27 @@ export function MedicalHistorySection({
     }
 
     return sortState.direction === "asc" ? "▲" : "▼";
+  }
+
+  function startColumnResize(columnKey: ColumnKey, startX: number) {
+    const startWidth = columnWidths[columnKey];
+
+    function handleMouseMove(event: MouseEvent) {
+      const deltaX = event.clientX - startX;
+      const nextWidth = Math.max(MIN_COLUMN_WIDTHS[columnKey], startWidth + deltaX);
+      setColumnWidths((current) => ({
+        ...current,
+        [columnKey]: nextWidth,
+      }));
+    }
+
+    function handleMouseUp() {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    }
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
   }
 
   async function submitForm() {
@@ -331,58 +421,124 @@ export function MedicalHistorySection({
       ) : (
         <div className="medical-history-table-wrap">
           <table className="medical-history-table">
+            <colgroup>
+              <col style={{ width: `${columnWidths.category}px` }} />
+              <col style={{ width: `${columnWidths.title}px` }} />
+              <col style={{ width: `${columnWidths.startedAt}px` }} />
+              <col style={{ width: `${columnWidths.endedAt}px` }} />
+              <col style={{ width: `${columnWidths.isOngoing}px` }} />
+              <col style={{ width: `${columnWidths.hospitalName}px` }} />
+              <col style={{ width: `${columnWidths.detail}px` }} />
+              <col style={{ width: `${columnWidths.actions}px` }} />
+            </colgroup>
             <thead>
               <tr>
-                <th>
+                <th className="medical-history-col-category">
                   <button type="button" className="table-sort-button" onClick={() => toggleSort("category")}>
                     <span>カテゴリ</span>
                     <span className="sort-indicator">{getSortIndicator("category")}</span>
                   </button>
+                  <button
+                    type="button"
+                    className="column-resize-handle"
+                    aria-label="カテゴリ列の幅を調整"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      startColumnResize("category", event.clientX);
+                    }}
+                  />
                 </th>
-                <th>
+                <th className="medical-history-col-title">
                   <button type="button" className="table-sort-button" onClick={() => toggleSort("title")}>
                     <span>タイトル</span>
                     <span className="sort-indicator">{getSortIndicator("title")}</span>
                   </button>
+                  <button
+                    type="button"
+                    className="column-resize-handle"
+                    aria-label="タイトル列の幅を調整"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      startColumnResize("title", event.clientX);
+                    }}
+                  />
                 </th>
-                <th>
+                <th className="medical-history-col-startedAt">
                   <button type="button" className="table-sort-button" onClick={() => toggleSort("startedAt")}>
                     <span>開始</span>
                     <span className="sort-indicator">{getSortIndicator("startedAt")}</span>
                   </button>
+                  <button
+                    type="button"
+                    className="column-resize-handle"
+                    aria-label="開始列の幅を調整"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      startColumnResize("startedAt", event.clientX);
+                    }}
+                  />
                 </th>
-                <th>
+                <th className="medical-history-col-endedAt">
                   <button type="button" className="table-sort-button" onClick={() => toggleSort("endedAt")}>
                     <span>終了</span>
                     <span className="sort-indicator">{getSortIndicator("endedAt")}</span>
                   </button>
+                  <button
+                    type="button"
+                    className="column-resize-handle"
+                    aria-label="終了列の幅を調整"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      startColumnResize("endedAt", event.clientX);
+                    }}
+                  />
                 </th>
-                <th>
+                <th className="medical-history-col-isOngoing">
                   <button type="button" className="table-sort-button" onClick={() => toggleSort("isOngoing")}>
                     <span>継続中</span>
                     <span className="sort-indicator">{getSortIndicator("isOngoing")}</span>
                   </button>
                 </th>
-                <th>
+                <th className="medical-history-col-hospitalName">
                   <button type="button" className="table-sort-button" onClick={() => toggleSort("hospitalName")}>
                     <span>病院名</span>
                     <span className="sort-indicator">{getSortIndicator("hospitalName")}</span>
                   </button>
+                  <button
+                    type="button"
+                    className="column-resize-handle"
+                    aria-label="病院名列の幅を調整"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      startColumnResize("hospitalName", event.clientX);
+                    }}
+                  />
                 </th>
-                <th>メモ</th>
-                <th>操作</th>
+                <th className="medical-history-col-detail">
+                  <span>メモ</span>
+                  <button
+                    type="button"
+                    className="column-resize-handle"
+                    aria-label="メモ列の幅を調整"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      startColumnResize("detail", event.clientX);
+                    }}
+                  />
+                </th>
+                <th className="medical-history-col-actions">操作</th>
               </tr>
             </thead>
             <tbody>
               {sortedItems.map((item) => (
                 <tr key={item.id}>
-                  <td data-label="カテゴリ">{item.category}</td>
-                  <td data-label="タイトル">{item.title}</td>
-                  <td data-label="開始">{formatDate(item.startedAt)}</td>
-                  <td data-label="終了">{item.isOngoing ? "—" : formatDate(item.endedAt)}</td>
-                  <td data-label="継続中">{item.isOngoing ? "はい" : "いいえ"}</td>
-                  <td data-label="病院名">{item.hospitalName || "—"}</td>
-                  <td data-label="メモ">
+                  <td data-label="カテゴリ" className="medical-history-col-category">{item.category}</td>
+                  <td data-label="タイトル" className="medical-history-col-title">{item.title}</td>
+                  <td data-label="開始" className="medical-history-col-startedAt">{formatDate(item.startedAt)}</td>
+                  <td data-label="終了" className="medical-history-col-endedAt">{item.isOngoing ? "—" : formatDate(item.endedAt)}</td>
+                  <td data-label="継続中" className="medical-history-col-isOngoing">{item.isOngoing ? "はい" : "いいえ"}</td>
+                  <td data-label="病院名" className="medical-history-col-hospitalName">{item.hospitalName || "—"}</td>
+                  <td data-label="メモ" className="medical-history-col-detail">
                     {item.detail ? (
                       <div className="medical-history-note-cell">
                         <span>{truncateDetail(item.detail)}</span>
@@ -401,7 +557,7 @@ export function MedicalHistorySection({
                       "—"
                     )}
                   </td>
-                  <td data-label="操作">
+                  <td data-label="操作" className="medical-history-col-actions">
                     <div className="table-action-group">
                       <button
                         type="button"

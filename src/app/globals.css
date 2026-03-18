@@ -1201,8 +1201,9 @@ a {
 
 .medical-history-table {
   width: 100%;
-  min-width: 760px;
+  min-width: 1316px;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .medical-history-table th,
@@ -1214,6 +1215,7 @@ a {
 }
 
 .medical-history-table th {
+  position: relative;
   color: #52607a;
   font-size: 0.9rem;
 }
@@ -1229,9 +1231,72 @@ a {
   font-weight: 700;
 }
 
+.medical-history-table th > span {
+  display: inline-block;
+}
+
 .sort-indicator {
   color: #7b8ba5;
   font-size: 0.82rem;
+}
+
+.column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -8px;
+  width: 16px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+}
+
+.column-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  width: 2px;
+  height: 24px;
+  border-radius: 999px;
+  background: #d5deeb;
+  transform: translateY(-50%);
+}
+
+.medical-history-col-category {
+  min-width: 96px;
+  max-width: 160px;
+}
+
+.medical-history-col-title {
+  min-width: 160px;
+  max-width: 320px;
+}
+
+.medical-history-col-startedAt,
+.medical-history-col-endedAt {
+  min-width: 110px;
+  max-width: 150px;
+}
+
+.medical-history-col-isOngoing {
+  min-width: 88px;
+  max-width: 110px;
+}
+
+.medical-history-col-hospitalName {
+  min-width: 140px;
+  max-width: 260px;
+}
+
+.medical-history-col-detail {
+  min-width: 220px;
+}
+
+.medical-history-col-actions {
+  min-width: 120px;
+  max-width: 160px;
 }
 
 .medical-history-note-cell {
@@ -1244,7 +1309,9 @@ a {
   color: #52607a;
   font-size: 0.92rem;
   line-height: 1.5;
-  white-space: pre-wrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .table-action-group {
@@ -1332,6 +1399,7 @@ a {
 
   .medical-history-table {
     min-width: 0;
+    table-layout: auto;
   }
 
   .medical-history-table thead {
@@ -1369,6 +1437,10 @@ a {
 
   .button-row > * {
     flex-basis: 100%;
+  }
+
+  .column-resize-handle {
+    display: none;
   }
 
   .modal-header {
