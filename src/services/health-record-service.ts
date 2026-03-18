@@ -12,6 +12,11 @@ const DEFAULT_PETS: Array<{ name: string; type: PetType }> = [
   { type: "dog", name: "たろう" },
 ];
 
+export interface CreatePetInput {
+  name: string;
+  type: PetType;
+}
+
 export interface SaveDailyRecordInput {
   petId: PetId;
   date: string;
@@ -46,30 +51,36 @@ export class HealthRecordService {
       return existingPets;
     }
 
+    const createdPets = await Promise.all(DEFAULT_PETS.map((defaultPet) => this.createPet(defaultPet)));
+    return createdPets.map((snapshot) => snapshot.pet);
+  }
+
+  async createPet(input: CreatePetInput): Promise<PetSnapshot> {
+    const trimmedName = input.name.trim();
+    if (!trimmedName) {
+      throw new Error("ペット名を入力してください。");
+    }
+
     const now = new Date().toISOString();
-    const createdPets = await Promise.all(
-      DEFAULT_PETS.map(async (defaultPet) => {
-        const pet: Pet = {
-          id: createId(defaultPet.type),
-          type: defaultPet.type,
-          name: defaultPet.name,
-          createdAt: now,
-          updatedAt: now,
-        };
+    const pet: Pet = {
+      id: createId(input.type),
+      type: input.type,
+      name: trimmedName,
+      createdAt: now,
+      updatedAt: now,
+    };
 
-        await this.petRepository.save(pet);
-        await this.petProfileRepository.save({
-          petId: pet.id,
-          createdAt: now,
-          updatedAt: now,
-          notes: "",
-        });
+    const profile: PetProfile = {
+      petId: pet.id,
+      createdAt: now,
+      updatedAt: now,
+      notes: "",
+    };
 
-        return pet;
-      }),
-    );
+    await this.petRepository.save(pet);
+    await this.petProfileRepository.save(profile);
 
-    return createdPets;
+    return { pet, profile };
   }
 
   async getPetSnapshot(petId: PetId): Promise<PetSnapshot | null> {
