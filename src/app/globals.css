@@ -1070,6 +1070,8 @@ a {
   display: grid;
   gap: 8px;
   align-content: start;
+  flex: 1;
+  min-width: 0;
 }
 
 .inline-button {
@@ -1163,6 +1165,83 @@ a {
 
 .danger-zone-card .danger-button {
   width: 100%;
+}
+
+.profile-section-card {
+  display: grid;
+  gap: 18px;
+}
+
+.profile-basic-overview {
+  align-items: flex-start;
+}
+
+.profile-name-block {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-name-block strong {
+  font-size: 1.25rem;
+  color: #172033;
+}
+
+.profile-name-block span {
+  color: #52607a;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.profile-photo-button-row {
+  align-items: stretch;
+}
+
+.profile-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.profile-summary-card {
+  padding: 12px 14px;
+  border: 1px solid #e7edf6;
+  border-radius: 16px;
+  background: #fbfdff;
+}
+
+.profile-summary-card dt {
+  margin-bottom: 6px;
+  color: #52607a;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.profile-summary-card dd {
+  margin: 0;
+  color: #172033;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.profile-note-panel,
+.profile-edit-section {
+  border-top: 1px solid #e7edf6;
+  padding-top: 18px;
+}
+
+.profile-note-panel p {
+  margin: 0;
+  padding: 14px;
+  border-radius: 16px;
+  background: #f6f9ff;
+  color: #30466f;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .empty-home-card {
@@ -1393,6 +1472,10 @@ a {
   }
 
   .hero-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-summary-grid {
     grid-template-columns: 1fr;
   }
 

@@ -10,7 +10,7 @@ function renderMetric(label: string, value: number | null, unit: string, digits:
   }
 
   return (
-    <span>
+    <span key={label}>
       {label} {value.toFixed(digits)}
       {unit}
     </span>

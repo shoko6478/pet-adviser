@@ -199,6 +199,33 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
     return items;
   }
 
+  async function handleDeletePet(targetPet: Pet) {
+    const confirmed = window.confirm(
+      `「${targetPet.name}」を削除します。基本情報・既往歴・健康記録・追加観察項目もすべて削除されます。よろしいですか？`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeletingPet(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      await healthRecordService.deletePet(targetPet.id);
+      const remainingPets = await healthRecordService.getPets();
+      if (remainingPets.length > 0) {
+        router.replace(getPetHref(remainingPets[0].id, "profile"));
+      } else {
+        router.replace("/");
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "ペットの削除に失敗しました。");
+    } finally {
+      setIsDeletingPet(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <main className="page-shell">
@@ -313,11 +340,9 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
             <div className="hero-main">
               <p className="eyebrow">Pet Adviser</p>
               <h1>{selectedPet.name}</h1>
-              <p className="hero-copy">
-                {section === "records"
-                  ? "日次記録・異常判定・推移グラフ・履歴を確認できます。"
-                  : "名前や種別、誕生月、写真、メモなどの基本情報を管理できます。"}
-              </p>
+              {section === "records" ? (
+                <p className="hero-copy">日次記録・異常判定・推移グラフ・履歴を確認できます。</p>
+              ) : null}
 
               <div className="hero-chip-row">
                 <span className="hero-chip">{getPetTypeLabel(selectedPet.type)}</span>
@@ -363,11 +388,12 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
             <PetProfileForm
               values={profileEditorValues}
               isSaving={isSavingProfile}
-              isDeleting={isDeletingPet}
               onChange={(nextValues) => {
                 setSuccessMessage(null);
                 setProfileEditorValues(nextValues);
               }}
+              approximateAgeLabel={approximateAge}
+              humanAgeLabel={humanAge}
               onSubmit={async (values) => {
                 setIsSavingProfile(true);
                 setErrorMessage(null);
@@ -395,32 +421,6 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
                   setErrorMessage(error instanceof Error ? error.message : "基本情報の保存に失敗しました。");
                 } finally {
                   setIsSavingProfile(false);
-                }
-              }}
-              onDelete={async () => {
-                const confirmed = window.confirm(
-                  `「${selectedPet.name}」を削除します。基本情報・既往歴・健康記録・追加観察項目もすべて削除されます。よろしいですか？`,
-                );
-                if (!confirmed) {
-                  return;
-                }
-
-                setIsDeletingPet(true);
-                setErrorMessage(null);
-                setSuccessMessage(null);
-
-                try {
-                  await healthRecordService.deletePet(selectedPet.id);
-                  const remainingPets = await healthRecordService.getPets();
-                  if (remainingPets.length > 0) {
-                    router.replace(getPetHref(remainingPets[0].id, "profile"));
-                  } else {
-                    router.replace("/");
-                  }
-                } catch (error) {
-                  setErrorMessage(error instanceof Error ? error.message : "ペットの削除に失敗しました。");
-                } finally {
-                  setIsDeletingPet(false);
                 }
               }}
             />
@@ -584,6 +584,21 @@ export function PetWorkspace({ petId, section }: PetWorkspaceProps) {
                 }
               }}
             />
+
+            <section className="card danger-zone-card">
+              <div className="section-header">
+                <h2>危険操作</h2>
+                <p>このペットの基本情報・既往歴・健康記録・追加観察項目をまとめて削除します。</p>
+              </div>
+              <button
+                type="button"
+                className="danger-button"
+                onClick={() => void handleDeletePet(selectedPet)}
+                disabled={isDeletingPet || isSavingProfile}
+              >
+                {isDeletingPet ? "削除中..." : "このペットを削除"}
+              </button>
+            </section>
           </>
         ) : (
           <>
