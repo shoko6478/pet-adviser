@@ -20,19 +20,19 @@ export interface PetProfileFormValues {
 interface PetProfileFormProps {
   values: PetProfileFormValues;
   isSaving: boolean;
-  isDeleting: boolean;
   onChange: (nextValues: PetProfileFormValues) => void;
   onSubmit: (values: PetProfileFormValues) => Promise<void>;
-  onDelete: () => Promise<void>;
+  approximateAgeLabel: string | null;
+  humanAgeLabel: string | null;
 }
 
 export function PetProfileForm({
   values,
   isSaving,
-  isDeleting,
   onChange,
   onSubmit,
-  onDelete,
+  approximateAgeLabel,
+  humanAgeLabel,
 }: PetProfileFormProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -70,36 +70,40 @@ export function PetProfileForm({
   }
 
   return (
-    <>
-      <form
-        className="card"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          await onSubmit(values);
-        }}
-      >
-        <div className="section-header">
-          <h2>ペット基本情報</h2>
-          <p>プロフィール写真や年齢の目安に使う項目をまとめて管理できます。</p>
+    <form
+      className="card profile-section-card"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        await onSubmit(values);
+      }}
+    >
+      <div className="section-header">
+        <h2>基本情報</h2>
+      </div>
+
+      <div className="profile-photo-editor profile-basic-overview">
+        <div className="profile-photo-preview large">
+          {values.photoDataUrl ? (
+            <img src={values.photoDataUrl} alt="プロフィール写真" className="profile-photo-image" />
+          ) : (
+            <span>写真なし</span>
+          )}
         </div>
 
-        <div className="profile-photo-editor">
-          <div className="profile-photo-preview large">
-            {values.photoDataUrl ? (
-              <img src={values.photoDataUrl} alt="プロフィール写真" className="profile-photo-image" />
-            ) : (
-              <span>写真なし</span>
-            )}
+        <div className="profile-photo-actions">
+          <div className="profile-name-block">
+            <strong>{values.name.trim() || "名前未設定"}</strong>
+            <span>{values.type === "cat" ? "猫" : "犬"}</span>
           </div>
 
-          <div className="profile-photo-actions">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="visually-hidden"
-              onChange={handlePhotoChange}
-            />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="visually-hidden"
+            onChange={handlePhotoChange}
+          />
+          <div className="button-row profile-photo-button-row">
             <button
               type="button"
               className="secondary-button inline-button"
@@ -116,9 +120,53 @@ export function PetProfileForm({
             >
               写真を削除
             </button>
-            <p className="helper-text">画像は保存前に縮小され、LocalStorageの使用量を抑えます。</p>
-            {imageError ? <p className="inline-error-text">{imageError}</p> : null}
           </div>
+          <p className="helper-text">画像は保存前に縮小され、LocalStorageの使用量を抑えます。</p>
+          {imageError ? <p className="inline-error-text">{imageError}</p> : null}
+        </div>
+      </div>
+
+      <dl className="profile-summary-grid">
+        <div className="profile-summary-card">
+          <dt>誕生月</dt>
+          <dd>{values.birthMonth || "未設定"}</dd>
+        </div>
+        <div className="profile-summary-card">
+          <dt>現在年齢</dt>
+          <dd>{approximateAgeLabel ?? "誕生月を登録すると表示されます"}</dd>
+        </div>
+        <div className="profile-summary-card">
+          <dt>人間年齢の概算</dt>
+          <dd>{humanAgeLabel ?? "誕生月を登録すると表示されます"}</dd>
+        </div>
+        <div className="profile-summary-card">
+          <dt>性別</dt>
+          <dd>
+            {values.sex === "male" ? "オス" : values.sex === "female" ? "メス" : "不明"}
+          </dd>
+        </div>
+        <div className="profile-summary-card">
+          <dt>去勢/避妊</dt>
+          <dd>{values.sterilized ? "済み" : "未実施 / 不明"}</dd>
+        </div>
+        <div className="profile-summary-card">
+          <dt>品種・種類メモ</dt>
+          <dd>{values.breed.trim() || "未設定"}</dd>
+        </div>
+      </dl>
+
+      {values.notes.trim() ? (
+        <section className="profile-note-panel" aria-label="基本情報メモ">
+          <div className="compact-header">
+            <h3>基本情報メモ</h3>
+          </div>
+          <p>{values.notes}</p>
+        </section>
+      ) : null}
+
+      <div className="profile-edit-section">
+        <div className="compact-header">
+          <h3>基本情報を編集</h3>
         </div>
 
         <div className="form-grid two-columns">
@@ -146,6 +194,16 @@ export function PetProfileForm({
 
         <div className="form-grid two-columns">
           <label className="field">
+            <span>誕生月</span>
+            <input
+              type="month"
+              value={values.birthMonth}
+              max={formatDateForInput(new Date()).slice(0, 7)}
+              onChange={(event) => updateValue("birthMonth", event.target.value)}
+            />
+          </label>
+
+          <label className="field">
             <span>性別</span>
             <select value={values.sex} onChange={(event) => updateValue("sex", event.target.value as PetSex)}>
               <option value="unknown">不明</option>
@@ -153,7 +211,9 @@ export function PetProfileForm({
               <option value="female">メス</option>
             </select>
           </label>
+        </div>
 
+        <div className="form-grid two-columns">
           <div className="field checkbox-card-field">
             <span>去勢/避妊</span>
             <label className="checkbox-field bordered">
@@ -165,9 +225,7 @@ export function PetProfileForm({
               <span>去勢/避妊済み</span>
             </label>
           </div>
-        </div>
 
-        <div className="form-grid two-columns">
           <label className="field">
             <span>品種・種類メモ</span>
             <input
@@ -177,42 +235,22 @@ export function PetProfileForm({
               placeholder="例: 雑種、柴犬、キジトラなど"
             />
           </label>
-
-          <label className="field">
-            <span>誕生月</span>
-            <input
-              type="month"
-              value={values.birthMonth}
-              max={formatDateForInput(new Date()).slice(0, 7)}
-              onChange={(event) => updateValue("birthMonth", event.target.value)}
-            />
-          </label>
         </div>
 
         <label className="field">
-          <span>メモ</span>
+          <span>基本情報メモ</span>
           <textarea
             value={values.notes}
-            rows={4}
+            rows={5}
             onChange={(event) => updateValue("notes", event.target.value)}
             placeholder="生活習慣や気になることなどを自由に記録できます。"
           />
         </label>
+      </div>
 
-        <button type="submit" className="secondary-button" disabled={isSaving || isDeleting || isProcessingImage}>
-          {isSaving ? "保存中..." : "基本情報を保存"}
-        </button>
-      </form>
-
-      <section className="card danger-zone-card">
-        <div className="section-header">
-          <h2>ペット削除</h2>
-          <p>このペットの基本情報・既往歴・健康記録・追加観察項目をまとめて削除します。</p>
-        </div>
-        <button type="button" className="danger-button" onClick={() => void onDelete()} disabled={isDeleting || isSaving}>
-          {isDeleting ? "削除中..." : "このペットを削除"}
-        </button>
-      </section>
-    </>
+      <button type="submit" className="secondary-button" disabled={isSaving || isProcessingImage}>
+        {isSaving ? "保存中..." : "基本情報を保存"}
+      </button>
+    </form>
   );
 }
