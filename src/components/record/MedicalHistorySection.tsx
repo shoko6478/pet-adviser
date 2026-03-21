@@ -294,7 +294,7 @@ export function MedicalHistorySection({
           <h2>既往歴</h2>
           <p>病気や手術、アレルギー、通院歴などをペットごとにまとめて管理できます。</p>
         </div>
-        {!isCreating && !editingItemId ? (
+        {!isCreating && !editingItemId && items.length > 0 ? (
           <button type="button" className="secondary-button medical-history-add-button" onClick={startCreate}>
             既往歴を追加
           </button>
@@ -404,7 +404,14 @@ export function MedicalHistorySection({
       ) : null}
 
       {items.length === 0 ? (
-        <p className="empty-text">まだ既往歴は登録されていません。必要な情報を追加できます。</p>
+        <div className="empty-action-stack">
+          <p className="empty-text">まだ既往歴は登録されていません。必要な情報を追加できます。</p>
+          {!isCreating && !editingItemId ? (
+            <button type="button" className="secondary-button section-empty-add-button" onClick={startCreate}>
+              既往歴を追加
+            </button>
+          ) : null}
+        </div>
       ) : (
         <div className="medical-history-table-wrap">
           <table className="medical-history-table">
