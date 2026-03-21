@@ -11,7 +11,6 @@ interface PetSidebarProps {
   onSelect: (petId: PetId) => void;
   onCreateValuesChange: (values: PetCreateFormValues) => void;
   onCreatePet: (values: PetCreateFormValues) => Promise<void>;
-  onClose?: () => void;
 }
 
 const PET_TYPE_LABELS: Record<PetType, string> = {
@@ -28,7 +27,6 @@ export function PetSidebar({
   onSelect,
   onCreateValuesChange,
   onCreatePet,
-  onClose,
 }: PetSidebarProps) {
   const groups = pets.reduce<Record<PetType, Pet[]>>(
     (acc, pet) => {
@@ -49,11 +47,6 @@ export function PetSidebar({
               : "基本情報ページのまま切り替えます。"}
           </p>
         </div>
-        {onClose ? (
-          <button type="button" className="sidebar-close-button" onClick={onClose} aria-label="ペット一覧を閉じる">
-            閉じる
-          </button>
-        ) : null}
       </div>
 
       <div className="sidebar-groups">
