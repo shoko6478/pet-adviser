@@ -61,7 +61,7 @@ interface WorkspacePanelsContextValue {
   setObservationFormValues: (values: DailyObservationFormValues) => void;
   setSuccessMessage: (message: string | null) => void;
   loadRecordEditor: (date: string) => Promise<void>;
-  handleSaveProfile: (values: PetProfileFormValues) => Promise<void>;
+  handleSaveProfile: (values: PetProfileFormValues) => Promise<boolean>;
   handleCreateMedicalHistory: (values: {
     category: MedicalHistoryItem["category"];
     title: string;
@@ -285,8 +285,10 @@ export function PetWorkspacePanelsProvider({
       setProfileEditorValues(toProfileFormValues(snapshot.pet, snapshot.profile));
       onProfileSaved(snapshot);
       setSuccessMessage(`${snapshot.pet.name} の基本情報を保存しました。`);
+      return true;
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "基本情報の保存に失敗しました。");
+      return false;
     } finally {
       setIsSavingProfile(false);
     }
@@ -551,6 +553,7 @@ function PanelFeedback() {
 export function PetProfileSection() {
   const {
     pet,
+    profile,
     medicalHistoryItems,
     observationFieldDefinitions,
     profileEditorValues,
@@ -571,6 +574,7 @@ export function PetProfileSection() {
     handleDeleteObservationField,
     handleDeletePet,
   } = usePetWorkspacePanels();
+  const [isEditingBasicInfo, setIsEditingBasicInfo] = useState(false);
 
   return (
     <>
@@ -578,13 +582,29 @@ export function PetProfileSection() {
       <PetProfileForm
         values={profileEditorValues}
         isSaving={isSavingProfile}
+        isEditing={isEditingBasicInfo}
         onChange={(nextValues) => {
           setSuccessMessage(null);
           setProfileEditorValues(nextValues);
         }}
+        onStartEditing={() => {
+          setSuccessMessage(null);
+          setProfileEditorValues(toProfileFormValues(pet, profile));
+          setIsEditingBasicInfo(true);
+        }}
+        onCancelEditing={() => {
+          setSuccessMessage(null);
+          setProfileEditorValues(toProfileFormValues(pet, profile));
+          setIsEditingBasicInfo(false);
+        }}
         approximateAgeLabel={approximateAge}
         humanAgeLabel={humanAge}
-        onSubmit={handleSaveProfile}
+        onSubmit={async (values) => {
+          const saved = await handleSaveProfile(values);
+          if (saved) {
+            setIsEditingBasicInfo(false);
+          }
+        }}
       />
 
       <MedicalHistorySection

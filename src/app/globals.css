@@ -111,6 +111,19 @@ a {
   font-size: 0.92rem;
 }
 
+.basic-info-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.basic-info-edit-button {
+  width: auto;
+  min-height: 38px;
+}
+
+
 .form-grid {
   display: grid;
   gap: 12px;
