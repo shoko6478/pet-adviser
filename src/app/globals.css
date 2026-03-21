@@ -1064,22 +1064,6 @@ a {
   fill: #30466f;
 }
 
-.text-observation-marker-group {
-  cursor: pointer;
-}
-
-.observation-marker-text.active {
-  fill: #30466f;
-  stroke: #1d2f52;
-  stroke-width: 2;
-}
-
-.chart-note-detail {
-  margin-top: 12px;
-  border-top: 1px solid #e7edf6;
-  padding-top: 12px;
-}
-
 .chart-note-detail-title {
   margin: 0 0 8px;
   color: #30466f;
@@ -1087,18 +1071,45 @@ a {
   font-weight: 700;
 }
 
-.chart-note-detail-body {
+.chart-memo-marker-group {
+  cursor: pointer;
+}
+
+.chart-memo-marker {
+  fill: #52607a;
+  transition: fill 0.16s ease, stroke 0.16s ease, transform 0.16s ease;
+}
+
+.chart-memo-marker-group:hover .chart-memo-marker,
+.chart-memo-marker-group:focus-visible .chart-memo-marker,
+.chart-memo-marker.active {
+  fill: #30466f;
+  stroke: #1d2f52;
+  stroke-width: 2;
+}
+
+.chart-memo-modal {
+  max-width: min(100%, 560px);
+}
+
+.chart-memo-modal-body {
+  display: grid;
+  gap: 12px;
+}
+
+.chart-memo-entry {
   padding: 12px 14px;
   border-radius: 12px;
   background: #f5f8fd;
 }
 
-.chart-note-detail-body strong {
+.chart-memo-entry strong {
   display: block;
   margin-bottom: 6px;
+  color: #172033;
 }
 
-.chart-note-detail-body p {
+.chart-memo-entry p {
   margin: 0;
   white-space: pre-wrap;
   color: #30466f;

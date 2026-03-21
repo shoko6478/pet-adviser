@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DailyObservationValue } from "@/domain/models/daily-observation-value";
 import type { DailyRecord } from "@/domain/models/daily-record";
 import type { ObservationFieldDefinition } from "@/domain/models/observation-field-definition";
@@ -31,16 +31,18 @@ type Tick = {
   label: string;
 };
 
-type ObservationMarker =
-  | {
-      date: string;
-      kind: "checkbox";
-    }
-  | {
-      date: string;
-      kind: "text";
-      note: string;
-    };
+type ObservationMarker = {
+  date: string;
+  kind: "checkbox";
+};
+
+type MemoMarker = {
+  date: string;
+  notes: Array<{
+    label: string;
+    note: string;
+  }>;
+};
 
 const RANGE_OPTIONS: RangeOption[] = [7, 30];
 const GRID_STEPS = 4;
@@ -131,7 +133,7 @@ export function RecordCharts({
 }: RecordChartsProps) {
   const [selectedRange, setSelectedRange] = useState<RangeOption>(7);
   const [activeDate, setActiveDate] = useState<string | null>(null);
-  const [selectedTextMarkerKey, setSelectedTextMarkerKey] = useState<string | null>(null);
+  const [selectedMemoDate, setSelectedMemoDate] = useState<string | null>(null);
 
   const today = getTodayDateString();
 
@@ -164,6 +166,35 @@ export function RecordCharts({
     [rangeWindow.filteredRecords],
   );
 
+  const checkboxObservationFields = useMemo(
+    () => sortedObservationFields.filter((field) => field.type === "checkbox"),
+    [sortedObservationFields],
+  );
+
+  const textObservationFields = useMemo(
+    () => sortedObservationFields.filter((field) => field.type === "text"),
+    [sortedObservationFields],
+  );
+
+  const memoMarkers = useMemo(() => {
+    return rangeWindow.filteredRecords.reduce<MemoMarker[]>((accumulator, record) => {
+      const notes = textObservationFields.flatMap((field) => {
+        const observationValue = getObservationValue(observationValuesByRecordId, record.id, field.id);
+        const note = typeof observationValue?.value === "string" ? observationValue.value.trim() : "";
+        return note ? [{ label: field.label, note }] : [];
+      });
+
+      if (notes.length > 0) {
+        accumulator.push({
+          date: record.date,
+          notes,
+        });
+      }
+
+      return accumulator;
+    }, []);
+  }, [observationValuesByRecordId, rangeWindow.filteredRecords, textObservationFields]);
+
   const geometry = useMemo(() => {
     const fixedLeftWidth = 124;
     const fixedRightWidth = 88;
@@ -171,7 +202,8 @@ export function RecordCharts({
     const graphHeight = 220;
     const rowHeight = 34;
     const rowsTop = graphTop + graphHeight + 26;
-    const rowsHeight = Math.max(sortedObservationFields.length, 1) * rowHeight;
+    const rowCount = Math.max(checkboxObservationFields.length + (memoMarkers.length > 0 ? 1 : 0), 1);
+    const rowsHeight = rowCount * rowHeight;
     const dateAxisHeight = 44;
     const totalHeight = rowsTop + rowsHeight + dateAxisHeight;
     const plotWidth = rangeWindow.displayDayCount * SLOT_WIDTH;
@@ -193,7 +225,7 @@ export function RecordCharts({
         return diffDays(rangeWindow.startDate, date) * SLOT_WIDTH + SLOT_WIDTH / 2;
       },
     };
-  }, [rangeWindow.displayDayCount, rangeWindow.startDate, sortedObservationFields.length]);
+  }, [checkboxObservationFields.length, memoMarkers.length, rangeWindow.displayDayCount, rangeWindow.startDate]);
 
   const weightValues = rangeWindow.filteredRecords.flatMap((record) => (record.weight === null ? [] : [record.weight]));
   const foodValues = rangeWindow.filteredRecords.flatMap((record) => (record.food === null ? [] : [record.food]));
@@ -223,23 +255,15 @@ export function RecordCharts({
   });
 
   const observationRows = useMemo(() => {
-    return sortedObservationFields.map((field) => {
+    return checkboxObservationFields.map((field) => {
       const markers = rangeWindow.filteredRecords.reduce<ObservationMarker[]>((accumulator, record) => {
         const observationValue = getObservationValue(observationValuesByRecordId, record.id, field.id);
         if (!observationValue) {
           return accumulator;
         }
 
-        if (field.type === "checkbox") {
-          if (observationValue.value === true) {
-            accumulator.push({ date: record.date, kind: "checkbox" });
-          }
-          return accumulator;
-        }
-
-        const note = typeof observationValue.value === "string" ? observationValue.value.trim() : "";
-        if (note) {
-          accumulator.push({ date: record.date, kind: "text", note });
+        if (observationValue.value === true) {
+          accumulator.push({ date: record.date, kind: "checkbox" });
         }
 
         return accumulator;
@@ -247,24 +271,7 @@ export function RecordCharts({
 
       return { field, markers };
     });
-  }, [observationValuesByRecordId, rangeWindow.filteredRecords, sortedObservationFields]);
-
-  const textMarkers = useMemo(() => {
-    return observationRows.flatMap((row) =>
-      row.markers.flatMap((marker) =>
-        marker.kind === "text"
-          ? [
-              {
-                key: `${row.field.id}-${marker.date}`,
-                date: marker.date,
-                label: row.field.label,
-                note: marker.note,
-              },
-            ]
-          : [],
-      ),
-    );
-  }, [observationRows]);
+  }, [checkboxObservationFields, observationValuesByRecordId, rangeWindow.filteredRecords]);
 
   const activeRecord = activeDate ? recordsByDate[activeDate] ?? null : null;
   const activeObservationSummary = activeDate
@@ -281,13 +288,42 @@ export function RecordCharts({
         ];
       })
     : [];
+  const activeMemoSummary =
+    activeDate && memoMarkers.some((marker) => marker.date === activeDate) ? ["健康メモ: あり"] : [];
 
-  const selectedTextMarker =
-    textMarkers.find((marker) => marker.key === selectedTextMarkerKey) ?? textMarkers[0] ?? null;
+  const selectedMemoMarker = selectedMemoDate
+    ? memoMarkers.find((marker) => marker.date === selectedMemoDate) ?? null
+    : null;
+
+  const hasMemoRow = memoMarkers.length > 0;
+  const memoRowY = hasMemoRow
+    ? geometry.rowsTop + geometry.rowHeight * observationRows.length + geometry.rowHeight / 2
+    : null;
 
   const activeDateX = activeDate ? geometry.getSlotCenter(activeDate) : null;
   const todayX = rangeWindow.slots.includes(today) ? geometry.getSlotX(today) : null;
   const gridBottom = geometry.rowsTop + geometry.rowsHeight;
+
+  useEffect(() => {
+    if (!selectedMemoDate) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setSelectedMemoDate(null);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedMemoDate]);
+
+  useEffect(() => {
+    if (selectedMemoDate && !memoMarkers.some((marker) => marker.date === selectedMemoDate)) {
+      setSelectedMemoDate(null);
+    }
+  }, [memoMarkers, selectedMemoDate]);
 
   return (
     <section className="card chart-section-card">
@@ -353,7 +389,7 @@ export function RecordCharts({
                   体重(kg)
                 </text>
 
-                {observationRows.length > 0 ? (
+                {observationRows.length > 0 || hasMemoRow ? (
                   observationRows.map((row, index) => {
                     const y = geometry.rowsTop + geometry.rowHeight * index + geometry.rowHeight / 2;
                     return (
@@ -367,7 +403,21 @@ export function RecordCharts({
                         {row.field.label}
                       </text>
                     );
-                  })
+                  }).concat(
+                    hasMemoRow && memoRowY !== null
+                      ? [
+                          <text
+                            key="memo-row-label"
+                            x={geometry.fixedLeftWidth - 12}
+                            y={memoRowY + 4}
+                            textAnchor="end"
+                            className="chart-tick-label observation-row-label"
+                          >
+                            メモ
+                          </text>,
+                        ]
+                      : [],
+                  )
                 ) : (
                   <text
                     x={geometry.fixedLeftWidth - 12}
@@ -394,6 +444,9 @@ export function RecordCharts({
                       <span>食事量: {formatMetricValue(activeRecord?.food ?? null, "g", 0)}</span>
                       <span>トイレ回数: {formatMetricValue(activeRecord?.toilet ?? null, "回", 0)}</span>
                       {activeObservationSummary.map((summary) => (
+                        <span key={summary}>{summary}</span>
+                      ))}
+                      {activeMemoSummary.map((summary) => (
                         <span key={summary}>{summary}</span>
                       ))}
                     </div>
@@ -537,37 +590,11 @@ export function RecordCharts({
 
                               {row.markers.map((marker) => {
                                 const x = geometry.getSlotCenter(marker.date);
-                                return marker.kind === "checkbox" ? (
+                                return (
                                   <g key={`${row.field.id}-${marker.date}`}>
                                     <circle cx={x} cy={y} r="8" className="observation-marker observation-marker-checkbox" />
                                     <text x={x} y={y + 4} textAnchor="middle" className="observation-marker-label">
                                       ✓
-                                    </text>
-                                  </g>
-                                ) : (
-                                  <g
-                                    key={`${row.field.id}-${marker.date}`}
-                                    role="button"
-                                    tabIndex={0}
-                                    className="text-observation-marker-group"
-                                    onClick={() => setSelectedTextMarkerKey(`${row.field.id}-${marker.date}`)}
-                                    onKeyDown={(event) => {
-                                      if (event.key === "Enter" || event.key === " ") {
-                                        event.preventDefault();
-                                        setSelectedTextMarkerKey(`${row.field.id}-${marker.date}`);
-                                      }
-                                    }}
-                                  >
-                                    <rect
-                                      x={x - 9}
-                                      y={y - 9}
-                                      width="18"
-                                      height="18"
-                                      rx="4"
-                                      className={`observation-marker observation-marker-text${selectedTextMarkerKey === `${row.field.id}-${marker.date}` ? " active" : ""}`}
-                                    />
-                                    <text x={x} y={y + 4} textAnchor="middle" className="observation-marker-label">
-                                      メ
                                     </text>
                                   </g>
                                 );
@@ -590,6 +617,42 @@ export function RecordCharts({
                         onPointerDown={() => setActiveDate(date)}
                       />
                     ))}
+
+                    {hasMemoRow && memoRowY !== null
+                      ? memoMarkers.map((marker) => {
+                          const x = geometry.getSlotCenter(marker.date);
+                          const isSelected = selectedMemoDate === marker.date;
+                          return (
+                            <g
+                              key={`memo-${marker.date}`}
+                              role="button"
+                              tabIndex={0}
+                              className="chart-memo-marker-group"
+                              onClick={() => setSelectedMemoDate(marker.date)}
+                              onMouseEnter={() => setActiveDate(marker.date)}
+                              onFocus={() => setActiveDate(marker.date)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  setSelectedMemoDate(marker.date);
+                                }
+                              }}
+                            >
+                              <rect
+                                x={x - 10}
+                                y={memoRowY - 10}
+                                width="20"
+                                height="20"
+                                rx="5"
+                                className={`observation-marker chart-memo-marker${isSelected ? " active" : ""}`}
+                              />
+                              <text x={x} y={memoRowY + 4} textAnchor="middle" className="observation-marker-label">
+                                メ
+                              </text>
+                            </g>
+                          );
+                        })
+                      : null}
                   </svg>
                 </div>
               </div>
@@ -626,19 +689,35 @@ export function RecordCharts({
             </div>
           </div>
 
-          {textMarkers.length > 0 ? (
-            <div className="chart-note-detail">
-              <p className="chart-note-detail-title">選択中のメモ</p>
-              {selectedTextMarker ? (
-                <div className="chart-note-detail-body">
-                  <strong>
-                    {selectedTextMarker.date} / {selectedTextMarker.label}
-                  </strong>
-                  <p>{selectedTextMarker.note}</p>
+          {selectedMemoMarker ? (
+            <div
+              className="modal-backdrop"
+              role="presentation"
+              onClick={(event) => {
+                if (event.target === event.currentTarget) {
+                  setSelectedMemoDate(null);
+                }
+              }}
+            >
+              <div className="modal-card chart-memo-modal" role="dialog" aria-modal="true" aria-labelledby="chart-memo-title">
+                <div className="modal-header">
+                  <div>
+                    <p className="chart-note-detail-title">健康記録メモ</p>
+                    <h3 id="chart-memo-title">{selectedMemoMarker.date}</h3>
+                  </div>
+                  <button type="button" className="ghost-button small-button" onClick={() => setSelectedMemoDate(null)}>
+                    閉じる
+                  </button>
                 </div>
-              ) : (
-                <p className="observation-empty">メモ印を選ぶと内容を表示します。</p>
-              )}
+                <div className="modal-body chart-memo-modal-body">
+                  {selectedMemoMarker.notes.map((item) => (
+                    <section key={`${selectedMemoMarker.date}-${item.label}`} className="chart-memo-entry">
+                      <strong>{item.label}</strong>
+                      <p>{item.note}</p>
+                    </section>
+                  ))}
+                </div>
+              </div>
             </div>
           ) : null}
         </>
