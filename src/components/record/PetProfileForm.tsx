@@ -156,7 +156,7 @@ export function PetProfileForm({
       </dl>
 
       {values.notes.trim() ? (
-        <section className="profile-note-panel" aria-label="基本情報メモ">
+        <section id="profile-note-panel" className="profile-note-panel" aria-label="基本情報メモ">
           <div className="compact-header">
             <h3>基本情報メモ</h3>
           </div>
@@ -164,7 +164,7 @@ export function PetProfileForm({
         </section>
       ) : null}
 
-      <div className="profile-edit-section">
+      <div id="profile-edit-section" className="profile-edit-section">
         <div className="compact-header">
           <h3>基本情報を編集</h3>
         </div>

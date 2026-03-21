@@ -236,6 +236,30 @@ a {
   font-size: 0.9rem;
 }
 
+.workspace-header-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.workspace-edit-link {
+  width: auto;
+  white-space: nowrap;
+}
+
+.workspace-note-summary-block {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.workspace-note-link {
+  color: #2f61cc;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
 .sidebar-toggle-button,
 .sidebar-close-button {
   border: 1px solid #d7e1ef;
@@ -625,6 +649,16 @@ a {
   .workspace-toolbar {
     top: 8px;
   }
+
+  .workspace-header-topline {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .workspace-edit-link {
+    align-self: flex-start;
+  }
+
 
   .workspace-sidebar-panel {
     position: fixed;
