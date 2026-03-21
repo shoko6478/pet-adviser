@@ -186,7 +186,7 @@ export function PetShell({ petId, children }: PetShellProps) {
   if (!selectedPet || !selectedProfile) {
     return (
       <main className="page-shell workspace-shell workspace-empty-shell">
-        <div className="workspace-toolbar card">
+        <div className="workspace-empty-actions">
           <button
             type="button"
             className="sidebar-toggle-button"
@@ -227,25 +227,6 @@ export function PetShell({ petId, children }: PetShellProps) {
 
   return (
     <main className="page-shell workspace-shell">
-      <div className="workspace-toolbar card">
-        <div className="workspace-toolbar-main">
-          <button
-            type="button"
-            className="sidebar-toggle-button"
-            onClick={() => setIsSidebarOpen((current) => !current)}
-            aria-expanded={isSidebarOpen}
-            aria-controls="pet-sidebar-panel"
-          >
-            {isSidebarOpen ? "一覧を閉じる" : "一覧を開く"}
-          </button>
-          <div className="workspace-toolbar-copy">
-            <p className="eyebrow">Pet Adviser</p>
-            <strong>{selectedPet.name}</strong>
-            <span>{currentSection === "records" ? "健康記録を確認中" : "基本情報を確認中"}</span>
-          </div>
-        </div>
-      </div>
-
       <div className={`workspace-backdrop${isSidebarOpen ? " visible" : ""}`} onClick={() => setIsSidebarOpen(false)} />
 
       <div className="workspace-layout">
@@ -261,7 +242,13 @@ export function PetShell({ petId, children }: PetShellProps) {
           {shellErrorMessage ? <div className="feedback error">{shellErrorMessage}</div> : null}
           {shellSuccessMessage ? <div className="feedback success">{shellSuccessMessage}</div> : null}
 
-          <PetHeader pet={selectedPet} profile={selectedProfile} latestWeightLabel={latestWeightLabel} />
+          <PetHeader
+            pet={selectedPet}
+            profile={selectedProfile}
+            latestWeightLabel={latestWeightLabel}
+            isSidebarOpen={isSidebarOpen}
+            onToggleSidebar={() => setIsSidebarOpen((current) => !current)}
+          />
           <PetContentTabs petId={selectedPet.id} currentSection={currentSection} />
 
           <PetWorkspacePanelsProvider

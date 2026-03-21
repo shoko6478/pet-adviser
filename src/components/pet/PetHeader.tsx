@@ -13,6 +13,8 @@ interface PetHeaderProps {
   pet: Pet;
   profile: PetProfile;
   latestWeightLabel: string | null;
+  isSidebarOpen: boolean;
+  onToggleSidebar: () => void;
 }
 
 function truncateNoteSummary(note: string): { summary: string; truncated: boolean } {
@@ -27,7 +29,7 @@ function truncateNoteSummary(note: string): { summary: string; truncated: boolea
   };
 }
 
-export function PetHeader({ pet, profile, latestWeightLabel }: PetHeaderProps) {
+export function PetHeader({ pet, profile, latestWeightLabel, isSidebarOpen, onToggleSidebar }: PetHeaderProps) {
   const approximateAge = formatApproxAgeLabel(profile.birthMonth);
   const noteSummary = profile.notes?.trim() ? truncateNoteSummary(profile.notes) : null;
 
@@ -50,9 +52,20 @@ export function PetHeader({ pet, profile, latestWeightLabel }: PetHeaderProps) {
               <p className="eyebrow">選択中のペット</p>
               <h1>{pet.name}</h1>
             </div>
-            <Link href={`${getPetHref(pet.id, "profile")}#profile-edit-section`} className="ghost-button workspace-edit-link">
-              基本情報を編集
-            </Link>
+            <div className="workspace-header-actions">
+              <button
+                type="button"
+                className="sidebar-toggle-button workspace-header-button"
+                onClick={onToggleSidebar}
+                aria-expanded={isSidebarOpen}
+                aria-controls="pet-sidebar-panel"
+              >
+                {isSidebarOpen ? "一覧を閉じる" : "一覧を開く"}
+              </button>
+              <Link href={`${getPetHref(pet.id, "profile")}#profile-edit-section`} className="ghost-button workspace-edit-link">
+                基本情報を編集
+              </Link>
+            </div>
           </div>
 
           <div className="hero-chip-row">
