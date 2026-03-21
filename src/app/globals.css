@@ -239,6 +239,12 @@ a {
   font-size: 0.92rem;
 }
 
+.workspace-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
 .sidebar-toggle-button,
 .sidebar-close-button {
   border: 1px solid #d7e1ef;
@@ -623,6 +629,14 @@ a {
   .page-shell {
     padding-left: 12px;
     padding-right: 12px;
+  }
+
+  .workspace-controls {
+    justify-content: stretch;
+  }
+
+  .sidebar-toggle-button {
+    width: 100%;
   }
 
   .workspace-header-topline {

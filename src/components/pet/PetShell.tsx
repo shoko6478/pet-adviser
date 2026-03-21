@@ -39,6 +39,7 @@ export function PetShell({ petId, children }: PetShellProps) {
   const [latestWeightLabel, setLatestWeightLabel] = useState<string | null>(null);
   const [petCreateEditorValues, setPetCreateEditorValues] = useState<PetCreateFormValues>(() => createEmptyPetCreateForm());
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isCreatingPet, setIsCreatingPet] = useState(false);
   const [shellErrorMessage, setShellErrorMessage] = useState<string | null>(null);
@@ -102,10 +103,33 @@ export function PetShell({ petId, children }: PetShellProps) {
     };
   }, [petId, router]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    function syncViewportState() {
+      const nextIsMobileViewport = window.innerWidth < 768;
+      setIsMobileViewport(nextIsMobileViewport);
+
+      if (!nextIsMobileViewport) {
+        setIsSidebarOpen(true);
+      }
+    }
+
+    syncViewportState();
+    window.addEventListener("resize", syncViewportState);
+    return () => window.removeEventListener("resize", syncViewportState);
+  }, []);
+
   function closeSidebarOnMobile() {
-    if (typeof window !== "undefined" && window.innerWidth < 768) {
+    if (isMobileViewport) {
       setIsSidebarOpen(false);
     }
+  }
+
+  function toggleSidebar() {
+    setIsSidebarOpen((current) => !current);
   }
 
   const sidebar = useMemo(
@@ -144,9 +168,10 @@ export function PetShell({ petId, children }: PetShellProps) {
             setIsCreatingPet(false);
           }
         }}
+        onClose={isMobileViewport ? closeSidebarOnMobile : undefined}
       />
     ),
-    [currentSection, isCreatingPet, petCreateEditorValues, pets, router, selectedPet?.id],
+    [currentSection, isCreatingPet, isMobileViewport, petCreateEditorValues, pets, router, selectedPet?.id],
   );
 
   async function handleDeletePet(targetPet: Pet) {
@@ -186,6 +211,15 @@ export function PetShell({ petId, children }: PetShellProps) {
     return (
       <main className="page-shell workspace-shell workspace-empty-shell">
         <div className="workspace-layout">
+          <button
+            type="button"
+            className={`workspace-backdrop${isSidebarOpen && isMobileViewport ? " visible" : ""}`}
+            aria-label="ペット一覧を閉じる"
+            aria-hidden={!isSidebarOpen || !isMobileViewport}
+            tabIndex={isSidebarOpen && isMobileViewport ? 0 : -1}
+            onClick={closeSidebarOnMobile}
+          />
+
           <aside
             id="pet-sidebar-panel"
             className={`workspace-sidebar-panel${isSidebarOpen ? " open" : " closed"}`}
@@ -195,6 +229,18 @@ export function PetShell({ petId, children }: PetShellProps) {
           </aside>
 
           <div className="content-column workspace-main">
+            <div className="workspace-controls">
+              <button
+                type="button"
+                className="sidebar-toggle-button"
+                onClick={toggleSidebar}
+                aria-expanded={isSidebarOpen}
+                aria-controls="pet-sidebar-panel"
+              >
+                {isSidebarOpen ? "ペット一覧を閉じる" : "ペット一覧を開く"}
+              </button>
+            </div>
+
             <section className="hero card hero-card workspace-empty-card">
               <div>
                 <p className="eyebrow">Pet Adviser</p>
@@ -213,6 +259,15 @@ export function PetShell({ petId, children }: PetShellProps) {
   return (
     <main className="page-shell workspace-shell">
       <div className="workspace-layout">
+        <button
+          type="button"
+          className={`workspace-backdrop${isSidebarOpen && isMobileViewport ? " visible" : ""}`}
+          aria-label="ペット一覧を閉じる"
+          aria-hidden={!isSidebarOpen || !isMobileViewport}
+          tabIndex={isSidebarOpen && isMobileViewport ? 0 : -1}
+          onClick={closeSidebarOnMobile}
+        />
+
         <aside
           id="pet-sidebar-panel"
           className={`workspace-sidebar-panel${isSidebarOpen ? " open" : " closed"}`}
@@ -222,6 +277,18 @@ export function PetShell({ petId, children }: PetShellProps) {
         </aside>
 
         <div className="content-column workspace-main">
+          <div className="workspace-controls">
+            <button
+              type="button"
+              className="sidebar-toggle-button"
+              onClick={toggleSidebar}
+              aria-expanded={isSidebarOpen}
+              aria-controls="pet-sidebar-panel"
+            >
+              {isSidebarOpen ? "ペット一覧を閉じる" : "ペット一覧を開く"}
+            </button>
+          </div>
+
           {shellErrorMessage ? <div className="feedback error">{shellErrorMessage}</div> : null}
           {shellSuccessMessage ? <div className="feedback success">{shellSuccessMessage}</div> : null}
 
