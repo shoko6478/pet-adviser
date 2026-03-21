@@ -204,11 +204,6 @@ a {
   align-items: start;
 }
 
-.workspace-empty-actions {
-  display: flex;
-  justify-content: flex-start;
-  margin-bottom: 16px;
-}
 
 .workspace-header-topline {
   display: flex;
@@ -224,15 +219,6 @@ a {
   margin-top: 14px;
 }
 
-.workspace-controls {
-  display: flex;
-  justify-content: flex-start;
-  margin-bottom: 12px;
-}
-
-.workspace-section-toggle {
-  width: auto;
-}
 
 .workspace-note-link {
   color: #2f61cc;

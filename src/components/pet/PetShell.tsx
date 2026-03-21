@@ -144,7 +144,6 @@ export function PetShell({ petId, children }: PetShellProps) {
             setIsCreatingPet(false);
           }
         }}
-        onClose={() => setIsSidebarOpen(false)}
       />
     ),
     [currentSection, isCreatingPet, petCreateEditorValues, pets, router, selectedPet?.id],
@@ -186,20 +185,6 @@ export function PetShell({ petId, children }: PetShellProps) {
   if (!selectedPet || !selectedProfile) {
     return (
       <main className="page-shell workspace-shell workspace-empty-shell">
-        <div className="workspace-empty-actions">
-          <button
-            type="button"
-            className="sidebar-toggle-button"
-            onClick={() => setIsSidebarOpen((current) => !current)}
-            aria-expanded={isSidebarOpen}
-            aria-controls="pet-sidebar-panel"
-          >
-            {isSidebarOpen ? "一覧を閉じる" : "一覧を開く"}
-          </button>
-        </div>
-
-        <div className={`workspace-backdrop${isSidebarOpen ? " visible" : ""}`} onClick={() => setIsSidebarOpen(false)} />
-
         <div className="workspace-layout">
           <aside
             id="pet-sidebar-panel"
@@ -227,8 +212,6 @@ export function PetShell({ petId, children }: PetShellProps) {
 
   return (
     <main className="page-shell workspace-shell">
-      <div className={`workspace-backdrop${isSidebarOpen ? " visible" : ""}`} onClick={() => setIsSidebarOpen(false)} />
-
       <div className="workspace-layout">
         <aside
           id="pet-sidebar-panel"
@@ -243,19 +226,6 @@ export function PetShell({ petId, children }: PetShellProps) {
           {shellSuccessMessage ? <div className="feedback success">{shellSuccessMessage}</div> : null}
 
           <PetHeader pet={selectedPet} profile={selectedProfile} latestWeightLabel={latestWeightLabel} />
-
-          <div className="workspace-controls">
-            <button
-              type="button"
-              className="sidebar-toggle-button workspace-section-toggle"
-              onClick={() => setIsSidebarOpen((current) => !current)}
-              aria-expanded={isSidebarOpen}
-              aria-controls="pet-sidebar-panel"
-            >
-              {isSidebarOpen ? "一覧を閉じる" : "一覧を開く"}
-            </button>
-          </div>
-
           <PetContentTabs petId={selectedPet.id} currentSection={currentSection} />
 
           <PetWorkspacePanelsProvider
