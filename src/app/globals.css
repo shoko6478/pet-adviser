@@ -217,27 +217,21 @@ a {
   gap: 12px;
 }
 
-.workspace-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.workspace-header-button {
-  min-height: 38px;
-}
-
-.workspace-edit-link {
-  width: auto;
-  white-space: nowrap;
-}
 
 .workspace-note-summary-block {
   display: grid;
   gap: 6px;
   margin-top: 14px;
+}
+
+.workspace-controls {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 12px;
+}
+
+.workspace-section-toggle {
+  width: auto;
 }
 
 .workspace-note-link {
@@ -637,13 +631,6 @@ a {
     align-items: stretch;
   }
 
-  .workspace-header-actions {
-    justify-content: flex-start;
-  }
-
-  .workspace-edit-link {
-    align-self: flex-start;
-  }
 
 
   .workspace-sidebar-panel {

@@ -242,13 +242,20 @@ export function PetShell({ petId, children }: PetShellProps) {
           {shellErrorMessage ? <div className="feedback error">{shellErrorMessage}</div> : null}
           {shellSuccessMessage ? <div className="feedback success">{shellSuccessMessage}</div> : null}
 
-          <PetHeader
-            pet={selectedPet}
-            profile={selectedProfile}
-            latestWeightLabel={latestWeightLabel}
-            isSidebarOpen={isSidebarOpen}
-            onToggleSidebar={() => setIsSidebarOpen((current) => !current)}
-          />
+          <PetHeader pet={selectedPet} profile={selectedProfile} latestWeightLabel={latestWeightLabel} />
+
+          <div className="workspace-controls">
+            <button
+              type="button"
+              className="sidebar-toggle-button workspace-section-toggle"
+              onClick={() => setIsSidebarOpen((current) => !current)}
+              aria-expanded={isSidebarOpen}
+              aria-controls="pet-sidebar-panel"
+            >
+              {isSidebarOpen ? "一覧を閉じる" : "一覧を開く"}
+            </button>
+          </div>
+
           <PetContentTabs petId={selectedPet.id} currentSection={currentSection} />
 
           <PetWorkspacePanelsProvider

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Pet } from "@/domain/models/pet";
 import type { PetProfile } from "@/domain/models/pet-profile";
 import {
@@ -7,14 +6,11 @@ import {
   getPetSexLabel,
   getPetTypeLabel,
 } from "@/lib/utils/pet-profile";
-import { getPetHref } from "@/components/pet/pet-workspace-shared";
 
 interface PetHeaderProps {
   pet: Pet;
   profile: PetProfile;
   latestWeightLabel: string | null;
-  isSidebarOpen: boolean;
-  onToggleSidebar: () => void;
 }
 
 function truncateNoteSummary(note: string): { summary: string; truncated: boolean } {
@@ -29,7 +25,7 @@ function truncateNoteSummary(note: string): { summary: string; truncated: boolea
   };
 }
 
-export function PetHeader({ pet, profile, latestWeightLabel, isSidebarOpen, onToggleSidebar }: PetHeaderProps) {
+export function PetHeader({ pet, profile, latestWeightLabel }: PetHeaderProps) {
   const approximateAge = formatApproxAgeLabel(profile.birthMonth);
   const noteSummary = profile.notes?.trim() ? truncateNoteSummary(profile.notes) : null;
 
@@ -52,20 +48,6 @@ export function PetHeader({ pet, profile, latestWeightLabel, isSidebarOpen, onTo
               <p className="eyebrow">選択中のペット</p>
               <h1>{pet.name}</h1>
             </div>
-            <div className="workspace-header-actions">
-              <button
-                type="button"
-                className="sidebar-toggle-button workspace-header-button"
-                onClick={onToggleSidebar}
-                aria-expanded={isSidebarOpen}
-                aria-controls="pet-sidebar-panel"
-              >
-                {isSidebarOpen ? "一覧を閉じる" : "一覧を開く"}
-              </button>
-              <Link href={`${getPetHref(pet.id, "profile")}#profile-edit-section`} className="ghost-button workspace-edit-link">
-                基本情報を編集
-              </Link>
-            </div>
           </div>
 
           <div className="hero-chip-row">
@@ -81,11 +63,7 @@ export function PetHeader({ pet, profile, latestWeightLabel, isSidebarOpen, onTo
           {noteSummary ? (
             <div className="workspace-note-summary-block">
               <p className="workspace-note-summary">{noteSummary.summary}</p>
-              {noteSummary.truncated ? (
-                <Link href={`${getPetHref(pet.id, "profile")}#profile-note-panel`} className="workspace-note-link">
-                  メモ全文を見る
-                </Link>
-              ) : null}
+              {noteSummary.truncated ? <span className="workspace-note-link">メモ全文は基本情報タブで確認できます。</span> : null}
             </div>
           ) : null}
         </div>
