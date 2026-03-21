@@ -8,6 +8,7 @@ import {
   toMedicalHistoryFormValues,
 } from "@/components/pet/pet-workspace-shared";
 import type { MedicalHistoryItem } from "@/domain/models/medical-history-item";
+import { medicalHistoryUiPreferenceService } from "@/services/medical-history-ui-preference-service";
 
 interface MedicalHistorySectionProps {
   items: MedicalHistoryItem[];
@@ -35,7 +36,6 @@ interface SortState {
 }
 
 const DETAIL_PREVIEW_LENGTH = 50;
-const COLUMN_WIDTHS_STORAGE_KEY = "pet-adviser/medical-history-table-widths/v1";
 const DEFAULT_COLUMN_WIDTHS: Record<ColumnKey, number> = {
   category: 120,
   title: 220,
@@ -58,34 +58,21 @@ const MIN_COLUMN_WIDTHS: Record<ColumnKey, number> = {
 };
 
 function loadPersistedColumnWidths(): Partial<Record<ColumnKey, number>> {
-  if (typeof window === "undefined") {
+  const parsed = medicalHistoryUiPreferenceService.loadColumnWidths<Partial<Record<ColumnKey, unknown>>>();
+  if (!parsed) {
     return {};
   }
 
-  try {
-    const raw = window.localStorage.getItem(COLUMN_WIDTHS_STORAGE_KEY);
-    if (!raw) {
-      return {};
-    }
-
-    const parsed = JSON.parse(raw) as Partial<Record<ColumnKey, unknown>>;
-    return Object.fromEntries(
-      Object.entries(DEFAULT_COLUMN_WIDTHS).flatMap(([key]) => {
-        const width = parsed[key as ColumnKey];
-        return typeof width === "number" && Number.isFinite(width) ? [[key, width]] : [];
-      }),
-    ) as Partial<Record<ColumnKey, number>>;
-  } catch {
-    return {};
-  }
+  return Object.fromEntries(
+    Object.entries(DEFAULT_COLUMN_WIDTHS).flatMap(([key]) => {
+      const width = parsed[key as ColumnKey];
+      return typeof width === "number" && Number.isFinite(width) ? [[key, width]] : [];
+    }),
+  ) as Partial<Record<ColumnKey, number>>;
 }
 
 function savePersistedColumnWidths(widths: Record<ColumnKey, number>): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(widths));
+  medicalHistoryUiPreferenceService.saveColumnWidths(widths);
 }
 
 function formatDate(value?: string): string {
@@ -307,7 +294,7 @@ export function MedicalHistorySection({
           <h2>既往歴</h2>
           <p>病気や手術、アレルギー、通院歴などをペットごとにまとめて管理できます。</p>
         </div>
-        {!isCreating && !editingItemId ? (
+        {!isCreating && !editingItemId && items.length > 0 ? (
           <button type="button" className="secondary-button medical-history-add-button" onClick={startCreate}>
             既往歴を追加
           </button>
@@ -417,7 +404,14 @@ export function MedicalHistorySection({
       ) : null}
 
       {items.length === 0 ? (
-        <p className="empty-text">まだ既往歴は登録されていません。必要な情報を追加できます。</p>
+        <div className="empty-action-stack">
+          <p className="empty-text">まだ既往歴は登録されていません。必要な情報を追加できます。</p>
+          {!isCreating && !editingItemId ? (
+            <button type="button" className="secondary-button section-empty-add-button" onClick={startCreate}>
+              既往歴を追加
+            </button>
+          ) : null}
+        </div>
       ) : (
         <div className="medical-history-table-wrap">
           <table className="medical-history-table">

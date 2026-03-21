@@ -1,0 +1,73 @@
+import type { Pet } from "@/domain/models/pet";
+import type { PetProfile } from "@/domain/models/pet-profile";
+import {
+  formatApproxAgeLabel,
+  getPetInitial,
+  getPetSexLabel,
+  getPetTypeLabel,
+} from "@/lib/utils/pet-profile";
+
+interface PetHeaderProps {
+  pet: Pet;
+  profile: PetProfile;
+  latestWeightLabel: string | null;
+}
+
+function truncateNoteSummary(note: string): { summary: string; truncated: boolean } {
+  const normalized = note.trim().replace(/\s+/g, " ");
+  if (normalized.length <= 88) {
+    return { summary: normalized, truncated: false };
+  }
+
+  return {
+    summary: `${normalized.slice(0, 88).trimEnd()}…`,
+    truncated: true,
+  };
+}
+
+export function PetHeader({ pet, profile, latestWeightLabel }: PetHeaderProps) {
+  const approximateAge = formatApproxAgeLabel(profile.birthMonth);
+  const noteSummary = profile.notes?.trim() ? truncateNoteSummary(profile.notes) : null;
+
+  return (
+    <section className="hero card hero-card hero-profile-card workspace-profile-header">
+      <div className="hero-profile-layout">
+        <div className="hero-photo-wrap">
+          <div className="profile-photo-preview hero-avatar">
+            {profile.photoDataUrl ? (
+              <img src={profile.photoDataUrl} alt={`${pet.name}の写真`} className="profile-photo-image" />
+            ) : (
+              <span>{getPetInitial(pet.name)}</span>
+            )}
+          </div>
+        </div>
+
+        <div className="hero-main">
+          <div className="workspace-header-topline">
+            <div>
+              <p className="eyebrow">選択中のペット</p>
+              <h1>{pet.name}</h1>
+            </div>
+          </div>
+
+          <div className="hero-chip-row">
+            <span className="hero-chip">
+              {getPetTypeLabel(pet.type)}
+              {profile.breed ? ` / ${profile.breed}` : ""}
+            </span>
+            <span className="hero-chip">性別: {getPetSexLabel(profile.sex)}</span>
+            <span className="hero-chip">年齢: {approximateAge ?? "未設定"}</span>
+            <span className="hero-chip">最新体重: {latestWeightLabel ?? "未記録"}</span>
+          </div>
+
+          {noteSummary ? (
+            <div className="workspace-note-summary-block">
+              <p className="workspace-note-summary">{noteSummary.summary}</p>
+              {noteSummary.truncated ? <span className="workspace-note-link">メモ全文は基本情報タブで確認できます。</span> : null}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}

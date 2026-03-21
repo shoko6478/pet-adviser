@@ -1,6 +1,6 @@
-import type { Pet, PetId, PetType } from "@/domain/models/pet";
 import type { PetCreateFormValues } from "@/components/pet/PetCreateForm";
 import { PetCreateForm } from "@/components/pet/PetCreateForm";
+import type { Pet, PetId, PetType } from "@/domain/models/pet";
 
 interface PetSidebarProps {
   pets: Pet[];

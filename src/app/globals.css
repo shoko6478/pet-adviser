@@ -95,6 +95,11 @@ a {
   margin-bottom: 12px;
 }
 
+.empty-action-stack {
+  display: grid;
+  gap: 12px;
+}
+
 .compact-header {
   margin-bottom: 10px;
 }
@@ -110,6 +115,19 @@ a {
   margin: 0;
   font-size: 0.92rem;
 }
+
+.basic-info-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.basic-info-edit-button {
+  width: auto;
+  min-height: 38px;
+}
+
 
 .form-grid {
   display: grid;
@@ -165,6 +183,16 @@ a {
   background: #30466f;
 }
 
+.section-empty-add-button,
+.medical-history-add-button,
+.observation-manager-add-button {
+  width: auto;
+}
+
+.section-empty-add-button {
+  width: 100%;
+}
+
 .primary-button:disabled,
 .secondary-button:disabled {
   opacity: 0.6;
@@ -187,12 +215,91 @@ a {
   color: #277a46;
 }
 
+
+
+.workspace-shell {
+  width: min(100%, 1360px);
+  max-width: none;
+}
+
+.workspace-empty-shell {
+  padding-top: 20px;
+}
+
+.workspace-layout {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+
+
+.workspace-header-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+
+.workspace-note-summary-block {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+
+.workspace-note-link {
+  color: #2f61cc;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.workspace-sidebar-panel {
+  min-width: 0;
+}
+
+.workspace-main {
+  min-width: 0;
+}
+
+.workspace-profile-header {
+  margin-bottom: 16px;
+}
+
+.workspace-hero-stats {
+  margin-top: 12px;
+}
+
+.workspace-note-summary {
+  margin: 14px 0 0;
+  color: #52607a;
+  line-height: 1.6;
+}
+
+.workspace-section-tabs {
+  margin-bottom: 16px;
+}
+
+.workspace-section-content {
+  min-width: 0;
+}
+
+.workspace-empty-card {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+}
+
 .sidebar {
   align-self: start;
 }
 
 .sidebar-header {
   margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .sidebar-groups {
@@ -457,9 +564,29 @@ a {
     align-items: start;
   }
 
+  .workspace-layout {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .workspace-sidebar-panel {
+    width: 320px;
+    transition: width 0.22s ease, transform 0.22s ease, opacity 0.22s ease;
+  }
+
+  .workspace-sidebar-panel.closed {
+    width: 0;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .workspace-sidebar-panel.open {
+    opacity: 1;
+  }
+
   .sidebar {
     position: sticky;
-    top: 24px;
+    top: 88px;
   }
 
   .two-columns {
@@ -479,6 +606,29 @@ a {
   .page-shell {
     padding-left: 12px;
     padding-right: 12px;
+  }
+
+  .workspace-header-topline {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .workspace-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-sidebar-panel {
+    position: static;
+    width: auto;
+    padding: 0;
+    transform: none;
+    transition: none;
+  }
+
+  .workspace-sidebar-panel .sidebar {
+    height: auto;
+    margin-bottom: 0;
+    overflow-y: visible;
   }
 
   .sidebar {
@@ -569,7 +719,20 @@ a {
 }
 
 .observation-manager-form {
+  margin-top: 14px;
   margin-bottom: 14px;
+}
+
+.observation-manager-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.observation-manager-add-button {
+  padding: 0 18px;
+  flex-shrink: 0;
 }
 
 .observation-definition-list {
@@ -627,7 +790,8 @@ a {
 
 @media (max-width: 767px) {
   .chart-header-row,
-  .observation-definition-item {
+  .observation-definition-item,
+  .observation-manager-header {
     flex-direction: column;
     align-items: stretch;
   }
@@ -844,22 +1008,6 @@ a {
   fill: #30466f;
 }
 
-.text-observation-marker-group {
-  cursor: pointer;
-}
-
-.observation-marker-text.active {
-  fill: #30466f;
-  stroke: #1d2f52;
-  stroke-width: 2;
-}
-
-.chart-note-detail {
-  margin-top: 12px;
-  border-top: 1px solid #e7edf6;
-  padding-top: 12px;
-}
-
 .chart-note-detail-title {
   margin: 0 0 8px;
   color: #30466f;
@@ -867,18 +1015,45 @@ a {
   font-weight: 700;
 }
 
-.chart-note-detail-body {
+.chart-memo-marker-group {
+  cursor: pointer;
+}
+
+.chart-memo-marker {
+  fill: #52607a;
+  transition: fill 0.16s ease, stroke 0.16s ease, transform 0.16s ease;
+}
+
+.chart-memo-marker-group:hover .chart-memo-marker,
+.chart-memo-marker-group:focus-visible .chart-memo-marker,
+.chart-memo-marker.active {
+  fill: #30466f;
+  stroke: #1d2f52;
+  stroke-width: 2;
+}
+
+.chart-memo-modal {
+  max-width: min(100%, 560px);
+}
+
+.chart-memo-modal-body {
+  display: grid;
+  gap: 12px;
+}
+
+.chart-memo-entry {
   padding: 12px 14px;
   border-radius: 12px;
   background: #f5f8fd;
 }
 
-.chart-note-detail-body strong {
+.chart-memo-entry strong {
   display: block;
   margin-bottom: 6px;
+  color: #172033;
 }
 
-.chart-note-detail-body p {
+.chart-memo-entry p {
   margin: 0;
   white-space: pre-wrap;
   color: #30466f;
@@ -1261,7 +1436,6 @@ a {
 }
 
 .medical-history-add-button {
-  width: auto;
   padding: 0 18px;
   flex-shrink: 0;
 }
@@ -1487,6 +1661,10 @@ a {
     width: 100%;
   }
 
+  .observation-manager-add-button {
+    width: 100%;
+  }
+
   .medical-history-table {
     min-width: 0;
     table-layout: auto;
@@ -1537,3 +1715,4 @@ a {
     flex-direction: column;
   }
 }
+

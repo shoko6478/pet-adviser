@@ -21,6 +21,7 @@ export function ObservationFieldManager({
   onMove,
   onDelete,
 }: ObservationFieldManagerProps) {
+  const [isCreating, setIsCreating] = useState(false);
   const [label, setLabel] = useState("");
   const [type, setType] = useState<ObservationFieldType>("checkbox");
 
@@ -29,52 +30,39 @@ export function ObservationFieldManager({
     [definitions],
   );
 
+  function startCreate() {
+    setIsCreating(true);
+  }
+
+  function cancelCreate() {
+    setIsCreating(false);
+    setLabel("");
+    setType("checkbox");
+  }
+
   return (
     <section className="card">
-      <div className="section-header">
-        <h2>観察項目</h2>
-        <p>ペットごとに、健康記録へ追加表示するチェック項目や自由記述メモを管理できます。</p>
+      <div className="section-header observation-manager-header">
+        <div>
+          <h2>観察項目</h2>
+          <p>ペットごとに、健康記録へ追加表示するチェック項目や自由記述メモを管理できます。</p>
+        </div>
+        {sortedDefinitions.length > 0 && !isCreating ? (
+          <button type="button" className="secondary-button observation-manager-add-button" onClick={startCreate}>
+            観察項目を追加
+          </button>
+        ) : null}
       </div>
 
-      <form
-        className="observation-manager-form"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          const created = await onCreate({ label, type });
-          if (created) {
-            setLabel("");
-            setType("checkbox");
-          }
-        }}
-      >
-        <div className="form-grid two-columns">
-          <label className="field compact-field">
-            <span>項目名</span>
-            <input
-              type="text"
-              value={label}
-              onChange={(event) => setLabel(event.target.value)}
-              placeholder="例: 散歩に行ったか"
-              required
-            />
-          </label>
-
-          <label className="field compact-field">
-            <span>入力形式</span>
-            <select value={type} onChange={(event) => setType(event.target.value as ObservationFieldType)}>
-              <option value="checkbox">checkbox</option>
-              <option value="text">text</option>
-            </select>
-          </label>
-        </div>
-
-        <button type="submit" className="secondary-button" disabled={isSaving}>
-          {isSaving ? "追加中..." : "観察項目を追加"}
-        </button>
-      </form>
-
       {sortedDefinitions.length === 0 ? (
-        <p className="empty-text">まだ観察項目はありません。必要な項目を追加してください。</p>
+        <div className="empty-action-stack">
+          <p className="empty-text">まだ観察項目はありません。必要な項目を追加してください。</p>
+          {!isCreating ? (
+            <button type="button" className="secondary-button section-empty-add-button" onClick={startCreate}>
+              観察項目を追加
+            </button>
+          ) : null}
+        </div>
       ) : (
         <ul className="observation-definition-list">
           {sortedDefinitions.map((definition, index) => (
@@ -116,6 +104,49 @@ export function ObservationFieldManager({
           ))}
         </ul>
       )}
+
+      {isCreating ? (
+        <form
+          className="observation-manager-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const created = await onCreate({ label, type });
+            if (created) {
+              cancelCreate();
+            }
+          }}
+        >
+          <div className="form-grid two-columns">
+            <label className="field compact-field">
+              <span>項目名</span>
+              <input
+                type="text"
+                value={label}
+                onChange={(event) => setLabel(event.target.value)}
+                placeholder="例: 散歩に行ったか"
+                required
+              />
+            </label>
+
+            <label className="field compact-field">
+              <span>入力形式</span>
+              <select value={type} onChange={(event) => setType(event.target.value as ObservationFieldType)}>
+                <option value="checkbox">checkbox</option>
+                <option value="text">text</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="button-row">
+            <button type="submit" className="secondary-button" disabled={isSaving}>
+              {isSaving ? "追加中..." : "追加する"}
+            </button>
+            <button type="button" className="ghost-button" onClick={cancelCreate} disabled={isSaving}>
+              キャンセル
+            </button>
+          </div>
+        </form>
+      ) : null}
     </section>
   );
 }
